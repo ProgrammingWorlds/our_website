@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Programming Worlds — Beyond Code. Beyond Limits.</title>
+    <meta name="description" content="Programming Worlds turns ideas into meaningful digital solutions through software engineering, creative design, and thoughtful technology." />
+    <meta name="theme-color" content="#030B20" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Programming Worlds" />
+    <meta property="og:title" content="Programming Worlds — Beyond Code. Beyond Limits." />
+    <meta property="og:description" content="Digital Worlds. Built with Precision. Software engineering, creative design and thoughtful technology." />
+    <meta property="og:image" content="/assets/pw-logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/png" href="/assets/pw-logo.png" />
+    <link rel="apple-touch-icon" href="/assets/pw-logo.png" />
+    <script>
+      // Resolve theme + language before first paint (prevents flashes).
+      (function () {
+        var d = document.documentElement, theme, lang;
+        try { theme = localStorage.getItem('pw-theme'); lang = localStorage.getItem('pw-lang'); } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        if (lang !== 'ar' && lang !== 'en') lang = 'en';
+        d.setAttribute('data-theme', theme);
+        d.setAttribute('lang', lang);
+        d.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+        d.classList.add('js');
+      })();
+    </script>
+    <script type="application/ld+json">
+      { "@context": "https://schema.org", "@type": "Organization", "name": "Programming Worlds", "slogan": "Beyond Code. Beyond Limits.", "logo": "/assets/pw-logo.png" }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="nav" id="nav">
+      <a class="brand" href="#home" aria-label="Programming Worlds">
+        <img src="/assets/pw-logo.png" width="40" height="40" alt="" />
+        <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="#home" data-i18n="nav.home">Home</a>
+        <a href="#services" data-i18n="nav.services">Services</a>
+        <a href="#about" data-i18n="nav.about">About Us</a>
+        <a href="#process" data-i18n="nav.process">Our Process</a>
+        <a href="#projects" data-i18n="nav.projects">Projects</a>
+        <a href="#future" data-i18n="nav.future">Our Future</a>
+        <a href="#contact" data-i18n="nav.contact">Contact</a>
+      </nav>
+      <div class="nav__tools">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
+          <span class="theme-toggle__track" aria-hidden="true">
+            <span class="theme-toggle__icon theme-toggle__icon--moon"></span>
+            <span class="theme-toggle__icon theme-toggle__icon--sun"></span>
+            <span class="theme-toggle__knob"><span class="theme-toggle__knob-icon"></span></span>
+          </span>
+        </button>
+        <div class="lang" id="lang">
+          <button class="lang__btn" id="langBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="lang__code">EN</span><span class="lang__chev" aria-hidden="true"></span>
+          </button>
+          <ul class="lang__menu" id="langMenu" role="listbox" hidden>
+            <li role="option" tabindex="-1" data-lang="en" lang="en">English</li>
+            <li role="option" tabindex="-1" data-lang="ar" lang="ar">العربية</li>
+          </ul>
+        </div>
+        <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="mobileMenu"></button>
+      </div>
+    </header>
+
+    <div class="mobile-menu" id="mobileMenu" hidden>
+      <nav aria-label="Mobile">
+        <a href="#home" data-i18n="nav.home">Home</a>
+        <a href="#services" data-i18n="nav.services">Services</a>
+        <a href="#about" data-i18n="nav.about">About Us</a>
+        <a href="#process" data-i18n="nav.process">Our Process</a>
+        <a href="#projects" data-i18n="nav.projects">Projects</a>
+        <a href="#future" data-i18n="nav.future">Our Future</a>
+        <a href="#contact" data-i18n="nav.contact">Contact</a>
+      </nav>
+    </div>
+
+    <nav class="rail" id="rail" aria-label="Section navigation"></nav>
+
+    <main id="main">
+      <!-- SCENE 01 — HERO -->
+      <section class="scene scene--hero" id="home" data-scene="hero" aria-labelledby="h-hero">
+        <div class="stage">
+          <div class="content">
+            <p class="eyebrow eyebrow--split"><span data-i18n="hero.eyebrow.0">Programming</span> <span class="gold" data-i18n="hero.eyebrow.1">Worlds</span></p>
+            <h1 class="heading heading--xl" id="h-hero" data-heading="hero.heading">Digital Worlds. <span class="accent">Built with Precision.</span></h1>
+            <p class="desc" data-i18n="hero.desc">Turning ideas into meaningful digital solutions through software engineering, creative design, and thoughtful technology.</p>
+            <a class="btn btn--gold" href="#contact"><span data-i18n="hero.cta">Start Your Project</span><i class="btn__arrow"></i></a>
+          </div>
+          <div class="scroll-cue" aria-hidden="true"><span data-i18n="a11y.scroll">Scroll</span><i></i></div>
+          <div class="hud" data-hud></div>
+        </div>
+      </section>
+
+      <!-- SCENE 02 — SERVICES -->
+      <section class="scene scene--services" id="services" data-scene="services" aria-labelledby="h-services">
+        <div class="stage">
+          <div class="content">
+            <p class="eyebrow" data-i18n="services.eyebrow">Our Services</p>
+            <h2 class="heading" id="h-services" data-heading="services.heading">Big Ideas. <span class="accent">Strong Digital Foundations.</span></h2>
+            <p class="desc" data-i18n="services.desc">We deliver creative digital solutions to help you grow, automate and transform your business.</p>
+          </div>
+          <div class="hud" data-hud></div>
+          <button class="explore" id="exploreServices" type="button">
+            <span data-i18n="services.explore.0">Explore</span><span data-i18n="services.explore.1">Services</span><i></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- SCENE 03 — ABOUT -->
+      <section class="scene scene--about" id="about" data-scene="about" aria-labelledby="h-about">
+        <div class="stage">
+          <div class="content">
+            <p class="eyebrow" data-i18n="about.eyebrow">Who We Are</p>
+            <h2 class="heading" id="h-about" data-heading="about.heading">We Turn Ideas <span class="accent">Into Digital Reality.</span></h2>
+            <p class="desc" data-i18n="about.desc">Programming Worlds is a technology startup that transforms ideas into creative digital solutions and advanced software.</p>
+            <a class="btn btn--ghost btn--about" href="#process"><span data-i18n="about.cta">Discover Our Story</span><i class="btn__arrow"></i></a>
+          </div>
+          <ul class="pillars glass" id="pillars"></ul>
+          <div class="hud" data-hud></div>
+        </div>
+      </section>
+
+      <!-- SCENE 04 — PROCESS -->
+      <section class="scene scene--process" id="process" data-scene="process" aria-labelledby="h-process">
+        <div class="stage">
+          <div class="content">
+            <p class="eyebrow" data-i18n="process.eyebrow">Our Journey</p>
+            <h2 class="heading" id="h-process" data-heading="process.heading">From Idea <span class="accent">to Digital Product.</span></h2>
+            <p class="desc" data-i18n="process.desc">We take you through a clear and professional journey from the initial idea to launch and growth.</p>
+            <button class="btn btn--ghost" id="howWeWork" type="button"><span data-i18n="process.cta">How We Work</span><i class="btn__arrow"></i></button>
+            <div class="stage-meter" id="stageMeter" aria-live="polite"></div>
+          </div>
+          <ol class="sr-only" id="stageList"></ol>
+          <div class="hud" data-hud></div>
+        </div>
+      </section>
+
+      <!-- SCENE 05 — PORTFOLIO -->
+      <section class="scene scene--portfolio" id="projects" data-scene="portfolio" aria-labelledby="h-portfolio">
+        <div class="stage">
+          <div class="content">
+            <p class="eyebrow" data-i18n="portfolio.eyebrow">Our Work</p>
+            <h2 class="heading" id="h-portfolio" data-heading="portfolio.heading">Projects We're <span class="accent">Proud Of.</span></h2>
+            <p class="desc" data-i18n="portfolio.desc">We deliver creative digital solutions in various fields, helping our clients achieve their goals.</p>
+            <a class="btn btn--ghost" href="#contact"><span data-i18n="portfolio.cta">Explore Our Projects</span><i class="btn__arrow"></i></a>
+          </div>
+          <div class="carousel" id="carousel" role="group" aria-roledescription="carousel">
+            <button class="carousel__arrow" data-dir="-1" type="button"></button>
+            <div class="carousel__track" id="carouselTrack" role="tablist"></div>
+            <button class="carousel__arrow" data-dir="1" type="button"></button>
+            <p class="carousel__note" data-i18n="portfolio.note">Capability showcase — case studies are published once verified.</p>
+          </div>
+          <div class="hud" data-hud></div>
+        </div>
+      </section>
+
+      <!-- SCENE 06 — FUTURE -->
+      <section class="scene scene--future" id="future" data-scene="future" aria-labelledby="h-future">
+        <div class="stage">
+          <div class="content">
+            <p class="eyebrow" data-i18n="future.eyebrow">Our Future</p>
+            <h2 class="heading" id="h-future" data-heading="future.heading">A World of <span class="accent">New Opportunities.</span></h2>
+            <p class="desc" data-i18n="future.desc">We are exploring new frontiers in AI, business systems and cloud solutions to build a more intelligent and connected digital world.</p>
+            <a class="btn btn--ghost" href="#contact"><span data-i18n="future.cta">Explore Future Solutions</span><i class="btn__arrow"></i></a>
+          </div>
+          <div class="hud" data-hud></div>
+        </div>
+      </section>
+
+      <!-- SCENE 07 — CONTACT -->
+      <section class="scene scene--contact" id="contact" data-scene="contact" aria-labelledby="h-contact">
+        <div class="stage">
+          <div class="content">
+            <p class="eyebrow" data-i18n="contact.eyebrow">Let's Build Together</p>
+            <h2 class="heading" id="h-contact" data-heading="contact.heading">Have an Idea? <span class="accent">Let's Build It.</span></h2>
+            <p class="desc" data-i18n="contact.desc">Whether you are a business, a startup or an individual, we are ready to turn your ideas into real digital solutions.</p>
+            <a class="btn btn--ghost" id="contactCta" href="#contact"><span data-i18n="contact.cta">Contact Us Now</span><i class="btn__arrow"></i></a>
+          </div>
+          <div class="hud" data-hud></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <a class="brand" href="#home" aria-label="Programming Worlds">
+        <img src="/assets/pw-logo.png" width="36" height="36" alt="" loading="lazy" />
+        <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
+      </a>
+      <nav class="footer__links" aria-label="Footer">
+        <a href="#home" data-i18n="nav.home">Home</a>
+        <a href="#about" data-i18n="nav.about">About Us</a>
+        <a href="#services" data-i18n="nav.services">Services</a>
+        <a href="#projects" data-i18n="nav.projects">Projects</a>
+        <a href="#contact" data-i18n="nav.contact">Contact</a>
+      </nav>
+      <div class="footer__social" id="social"></div>
+      <p class="footer__tag"><span class="footer__dash"></span><span data-i18n="footer.tagline">Code the Future</span></p>
+      <p class="footer__legal"><span data-i18n="brand.slogan">Beyond Code. Beyond Limits.</span> · © <span id="year"></span> Programming Worlds. <span data-i18n="footer.rights">All rights reserved.</span></p>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
