@@ -1,5 +1,9 @@
 import './styles.css';
-import { applyLang, setupReveals, setupTheme, setupLang, setupNav } from './ui.js';
+import { gsap } from 'gsap';
+import { applyLang, setupTheme, setupLang, setupNav, setupCursor, setupTilt, createLoader } from './ui.js';
+import { createScroll } from './scroll.js';
+import { createChapters } from './chapters.js';
+import { CHAPTERS, arriveAt } from './story.js';
 
 const root = document.documentElement;
 const params = new URLSearchParams(location.search);
@@ -8,74 +12,111 @@ if (params.get('theme') === 'light' || params.get('theme') === 'dark') root.data
 if (params.get('lang') === 'ar' || params.get('lang') === 'en') root.lang = params.get('lang');
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || params.has('still');
+const capture = params.has('capture');
+if (reduced) root.classList.add('reduced');
 let lang = root.lang === 'ar' ? 'ar' : 'en';
-if (params.has('capture')) import('gsap').then(({ gsap }) => gsap.ticker.lagSmoothing(0));
+gsap.ticker.lagSmoothing(capture ? 0 : 500, 33);
+
 applyLang(lang);
-setupNav();
+const loader = createLoader({ reduced: reduced || capture });
+const scroll = createScroll({ reduced: reduced || capture });
+const chapters = createChapters({ scroll, reduced });
+chapters.build(lang);
+chapters.hideHero();
+setupNav({ lockScroll: (v) => (v ? scroll.lenis?.stop() : scroll.lenis?.start(), (document.body.style.overflow = v ? 'hidden' : '')) });
+setupCursor({ reduced: reduced || capture });
+setupTilt({ reduced });
 
 function hasWebGL() {
   try {
-    const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+    return !!document.createElement('canvas').getContext('webgl2');
   } catch {
     return false;
   }
 }
 
 async function boot() {
-  let engine = null, scenes = [], hero = null;
+  let world = null, hero = null;
+  const onKick = (k) => world?.kick(k);
+  loader.progress(12);
   if (hasWebGL()) {
     try {
-      const [{ Engine }, lib, ...mods] = await Promise.all([
-        import('./three/engine.js'),
+      const [{ World }, lib, ...mods] = await Promise.all([
+        import('./three/world.js'),
         import('./three/lib.js'),
-        import('./three/scenes/hero.js'),
-        import('./three/scenes/services.js'),
-        import('./three/scenes/about.js'),
-        import('./three/scenes/process.js'),
-        import('./three/scenes/portfolio.js'),
-        import('./three/scenes/future.js'),
-        import('./three/scenes/contact.js'),
+        import('./three/stations/hero.js'),
+        import('./three/stations/services.js'),
+        import('./three/stations/about.js'),
+        import('./three/stations/process.js'),
+        import('./three/stations/portfolio.js'),
+        import('./three/stations/future.js'),
+        import('./three/stations/contact.js'),
       ]);
-      engine = new Engine(document.getElementById('gl'), { reduced, quality: params.get('quality'), capture: params.has('capture') });
-      engine.ctx.lang = lang;
-      engine.ctx.dir = root.dir === 'rtl' ? -1 : 1;
-      const factories = [
-        [mods[0].createHero, 'home'],
-        [mods[1].createServices, 'services'],
-        [mods[2].createAbout, 'about'],
-        [mods[3].createProcess, 'process'],
-        [mods[4].createPortfolio, 'projects'],
-        [mods[5].createFuture, 'future'],
-        [mods[6].createContact, 'contact'],
-      ];
-      scenes = factories.map(([fn, id]) => engine.add(fn(engine, document.getElementById(id))));
-      hero = scenes[0];
-      setupTheme((mix) => lib.applyTheme(mix), { reduced });
+      loader.progress(45);
+      world = new World(document.getElementById('gl'), { reduced, quality: params.get('quality'), capture });
+      world.ctx.lang = lang;
+      world.ctx.dir = root.dir === 'rtl' ? -1 : 1;
+      world.navigate = (u) => scroll.toU(u);
+      const factories = [mods[0].createHero, mods[1].createServices, mods[2].createAbout, mods[3].createProcess, (w) => mods[4].createPortfolio(w, { onThumbs: chapters.setThumbs }), mods[5].createFuture, mods[6].createContact];
+      factories.forEach((fn, i) => world.add(fn(world), i));
+      world.seal();
+      hero = world.stations[0];
+      setupTheme((mix) => lib.applyTheme(mix), { reduced, onKick });
+      loader.progress(70);
       await document.fonts?.ready;
-      scenes.forEach((s) => s.onLang?.(lang));
-      engine.start();
+      world.stations.forEach((s) => s.onLang?.(lang));
+      // compile every station's shaders up front so the first flight doesn't hitch
+      world.stations.forEach((s) => (s.group.visible = true));
+      await world.renderer.compileAsync?.(world.scene, world.camera);
+      loader.progress(92);
       root.classList.add('webgl');
     } catch (err) {
       console.error('[PW] WebGL init failed, using static fallback', err);
-      root.classList.add('no-webgl');
-      engine = null;
+      world = null;
     }
-  } else {
-    root.classList.add('no-webgl');
   }
-  if (!engine) setupTheme(() => {}, { reduced });
+  if (!world) {
+    root.classList.add('no-webgl');
+    setupTheme(() => {}, { reduced });
+  }
 
   setupLang((l) => {
     lang = l;
     applyLang(l);
-    if (engine) {
-      engine.ctx.lang = l;
-      engine.setDir(l === 'ar' ? -1 : 1);
-      scenes.forEach((s) => s.onLang?.(l));
+    chapters.build(l);
+    chapters.replay();
+    if (world) {
+      world.ctx.lang = l;
+      world.setDir(l === 'ar' ? -1 : 1);
+      world.stations.forEach((s) => s.onLang?.(l));
+    }
+  }, { reduced, onKick });
+
+  // land on a deep link (#services …) without the fly-through
+  const ci = CHAPTERS.findIndex((c) => '#' + c.id === location.hash);
+  if (ci > 0) scroll.toU(ci + arriveAt(CHAPTERS[ci]), { immediate: true });
+  else scrollTo(0, 0);
+
+  if (capture) window.__pw = { toU: (u) => scroll.toU(u, { immediate: true }) };
+
+  let last = performance.now();
+  gsap.ticker.add((time) => {
+    const now = performance.now();
+    const dt = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    const st = scroll.update(time * 1000);
+    chapters.update(st);
+    if (world) {
+      world.avoid = chapters.activeRect();
+      world.frame(dt, st);
     }
   });
-  setupReveals({ reduced, onHero: () => hero?.playIntro?.() });
+
+  await loader.done(reduced || capture, () => {
+    onKick(1);
+    hero?.playIntro();
+  });
+  chapters.revealHero();
 }
 
 boot();

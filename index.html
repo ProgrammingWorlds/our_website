@@ -26,7 +26,8 @@
         d.setAttribute('data-theme', theme);
         d.setAttribute('lang', lang);
         d.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
-        d.classList.add('js');
+        d.classList.add('js', 'is-loading');
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
       })();
     </script>
     <script type="application/ld+json">
@@ -36,8 +37,33 @@
   <body>
     <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
 
+    <div class="loader" id="loader" aria-hidden="true">
+      <canvas class="loader__stars" id="loaderStars"></canvas>
+      <div class="loader__core">
+        <div class="loader__mark">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd48a" /><stop offset="0.5" stop-color="#ffb545" /><stop offset="1" stop-color="#5d86ff" /></linearGradient>
+            </defs>
+            <circle class="loader__track" cx="60" cy="60" r="56" />
+            <circle class="loader__ring" id="loaderRing" cx="60" cy="60" r="56" pathLength="100" />
+          </svg>
+          <img src="/assets/pw-logo.png" width="76" height="76" alt="" />
+        </div>
+        <p class="loader__hello" data-i18n="welcome.hello">Welcome to</p>
+        <p class="loader__title" data-i18n="welcome.title">Programming Worlds</p>
+        <p class="loader__sub" data-i18n="welcome.sub">Where ideas become digital worlds.</p>
+      </div>
+      <div class="loader__foot">
+        <span class="loader__count"><b id="loaderCount">000</b>%</span>
+        <span class="loader__slogan" data-i18n="brand.slogan">Beyond Code. Beyond Limits.</span>
+      </div>
+    </div>
+
     <canvas id="gl" aria-hidden="true"></canvas>
     <div class="grain" aria-hidden="true"></div>
+    <div class="labels" id="labels" aria-hidden="true"></div>
+    <div class="cursor" id="cursor" aria-hidden="true"><i></i></div>
 
     <header class="nav" id="nav">
       <a class="brand" href="#home" aria-label="Programming Worlds">
@@ -86,128 +112,128 @@
       </nav>
     </div>
 
+    <!-- chapter HUD: number, name, story progress -->
+    <div class="hud" id="hud" aria-hidden="true">
+      <div class="hud__num"><span class="hud__roll" id="hudRoll"></span><span class="hud__total">/ 07</span></div>
+      <p class="hud__name" id="hudName"></p>
+      <div class="hud__bar"><i id="hudBar"></i></div>
+    </div>
     <nav class="rail" id="rail" aria-label="Section navigation"></nav>
+    <div class="scroll-cue" id="scrollCue" aria-hidden="true"><span data-i18n="a11y.scroll">Scroll</span><i></i></div>
 
-    <main id="main">
-      <!-- SCENE 01 — HERO -->
-      <section class="scene scene--hero" id="home" data-scene="hero" aria-labelledby="h-hero">
-        <div class="stage">
-          <div class="content">
-            <p class="eyebrow eyebrow--split"><span data-i18n="hero.eyebrow.0">Programming</span> <span class="gold" data-i18n="hero.eyebrow.1">Worlds</span></p>
-            <h1 class="heading heading--xl" id="h-hero" data-heading="hero.heading">Digital Worlds. <span class="accent">Built with Precision.</span></h1>
-            <p class="desc" data-i18n="hero.desc">Turning ideas into meaningful digital solutions through software engineering, creative design, and thoughtful technology.</p>
+    <!-- Chapters are fixed panels over the 3D world; scroll drives which one is on stage. -->
+    <main id="main" class="chapters" tabindex="-1">
+      <section class="chapter chapter--hero" id="home" data-chapter="0" aria-labelledby="h-hero">
+        <div class="panel">
+          <p class="eyebrow eyebrow--split"><span data-i18n="hero.eyebrow.0">Programming</span> <span class="gold" data-i18n="hero.eyebrow.1">Worlds</span></p>
+          <h1 class="heading heading--xl" id="h-hero" data-heading="hero.heading">Digital Worlds. Built with Precision.</h1>
+          <p class="desc" data-i18n="hero.desc">Turning ideas into meaningful digital solutions through software engineering, creative design, and thoughtful technology.</p>
+          <div class="actions">
             <a class="btn btn--gold" href="#contact"><span data-i18n="hero.cta">Start Your Project</span><i class="btn__arrow"></i></a>
           </div>
-          <div class="scroll-cue" aria-hidden="true"><span data-i18n="a11y.scroll">Scroll</span><i></i></div>
-          <div class="hud" data-hud></div>
         </div>
       </section>
 
-      <!-- SCENE 02 — SERVICES -->
-      <section class="scene scene--services" id="services" data-scene="services" aria-labelledby="h-services">
-        <div class="stage">
-          <div class="content">
-            <p class="eyebrow" data-i18n="services.eyebrow">Our Services</p>
-            <h2 class="heading" id="h-services" data-heading="services.heading">Big Ideas. <span class="accent">Strong Digital Foundations.</span></h2>
-            <p class="desc" data-i18n="services.desc">We deliver creative digital solutions to help you grow, automate and transform your business.</p>
+      <section class="chapter chapter--services" id="services" data-chapter="1" aria-labelledby="h-services">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="services.eyebrow">Our Services</p>
+          <h2 class="heading" id="h-services" data-heading="services.heading">Big Ideas. Strong Digital Foundations.</h2>
+          <p class="desc" data-i18n="services.desc">We deliver creative digital solutions to help you grow, automate and transform your business.</p>
+          <div class="focus glass" id="svcFocus" aria-live="polite"></div>
+          <div class="steps" id="svcSteps" role="tablist"></div>
+          <div class="actions">
+            <button class="btn btn--ghost" id="exploreServices" type="button"><span><span data-i18n="services.explore.0">Explore</span> <span data-i18n="services.explore.1">Services</span></span><i class="btn__arrow"></i></button>
           </div>
-          <div class="hud" data-hud></div>
-          <button class="explore" id="exploreServices" type="button">
-            <span data-i18n="services.explore.0">Explore</span><span data-i18n="services.explore.1">Services</span><i></i>
-          </button>
         </div>
       </section>
 
-      <!-- SCENE 03 — ABOUT -->
-      <section class="scene scene--about" id="about" data-scene="about" aria-labelledby="h-about">
-        <div class="stage">
-          <div class="content">
-            <p class="eyebrow" data-i18n="about.eyebrow">Who We Are</p>
-            <h2 class="heading" id="h-about" data-heading="about.heading">We Turn Ideas <span class="accent">Into Digital Reality.</span></h2>
-            <p class="desc" data-i18n="about.desc">Programming Worlds is a technology startup that transforms ideas into creative digital solutions and advanced software.</p>
+      <section class="chapter chapter--about" id="about" data-chapter="2" aria-labelledby="h-about">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="about.eyebrow">Who We Are</p>
+          <h2 class="heading" id="h-about" data-heading="about.heading">We Turn Ideas Into Digital Reality.</h2>
+          <p class="desc" data-i18n="about.desc">Programming Worlds is a technology startup that transforms ideas into creative digital solutions and advanced software.</p>
+          <ul class="pillars glass" id="pillars"></ul>
+          <div class="actions">
             <a class="btn btn--ghost btn--about" href="#process"><span data-i18n="about.cta">Discover Our Story</span><i class="btn__arrow"></i></a>
           </div>
-          <ul class="pillars glass" id="pillars"></ul>
-          <div class="hud" data-hud></div>
         </div>
       </section>
 
-      <!-- SCENE 04 — PROCESS -->
-      <section class="scene scene--process" id="process" data-scene="process" aria-labelledby="h-process">
-        <div class="stage">
-          <div class="content">
-            <p class="eyebrow" data-i18n="process.eyebrow">Our Journey</p>
-            <h2 class="heading" id="h-process" data-heading="process.heading">From Idea <span class="accent">to Digital Product.</span></h2>
-            <p class="desc" data-i18n="process.desc">We take you through a clear and professional journey from the initial idea to launch and growth.</p>
+      <section class="chapter chapter--process" id="process" data-chapter="3" aria-labelledby="h-process">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="process.eyebrow">Our Journey</p>
+          <h2 class="heading" id="h-process" data-heading="process.heading">From Idea to Digital Product.</h2>
+          <p class="desc" data-i18n="process.desc">We take you through a clear and professional journey from the initial idea to launch and growth.</p>
+          <div class="focus glass" id="stageFocus" aria-live="polite"></div>
+          <div class="steps" id="stageSteps" role="tablist"></div>
+          <div class="actions">
             <button class="btn btn--ghost" id="howWeWork" type="button"><span data-i18n="process.cta">How We Work</span><i class="btn__arrow"></i></button>
-            <div class="stage-meter" id="stageMeter" aria-live="polite"></div>
           </div>
-          <ol class="sr-only" id="stageList"></ol>
-          <div class="hud" data-hud></div>
         </div>
       </section>
 
-      <!-- SCENE 05 — PORTFOLIO -->
-      <section class="scene scene--portfolio" id="projects" data-scene="portfolio" aria-labelledby="h-portfolio">
-        <div class="stage">
-          <div class="content">
-            <p class="eyebrow" data-i18n="portfolio.eyebrow">Our Work</p>
-            <h2 class="heading" id="h-portfolio" data-heading="portfolio.heading">Projects We're <span class="accent">Proud Of.</span></h2>
-            <p class="desc" data-i18n="portfolio.desc">We deliver creative digital solutions in various fields, helping our clients achieve their goals.</p>
+      <section class="chapter chapter--portfolio" id="projects" data-chapter="4" aria-labelledby="h-portfolio">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="portfolio.eyebrow">Our Work</p>
+          <h2 class="heading" id="h-portfolio" data-heading="portfolio.heading">Projects We're Proud Of.</h2>
+          <p class="desc" data-i18n="portfolio.desc">We deliver creative digital solutions in various fields, helping our clients achieve their goals.</p>
+          <div class="focus glass" id="workFocus" aria-live="polite"></div>
+          <div class="thumbs" id="thumbs" role="tablist"></div>
+          <p class="note" data-i18n="portfolio.note">Capability showcase — case studies are published once verified.</p>
+          <div class="actions">
             <a class="btn btn--ghost" href="#contact"><span data-i18n="portfolio.cta">Explore Our Projects</span><i class="btn__arrow"></i></a>
           </div>
-          <div class="carousel" id="carousel" role="group" aria-roledescription="carousel">
-            <button class="carousel__arrow" data-dir="-1" type="button"></button>
-            <div class="carousel__track" id="carouselTrack" role="tablist"></div>
-            <button class="carousel__arrow" data-dir="1" type="button"></button>
-            <p class="carousel__note" data-i18n="portfolio.note">Capability showcase — case studies are published once verified.</p>
-          </div>
-          <div class="hud" data-hud></div>
         </div>
       </section>
 
-      <!-- SCENE 06 — FUTURE -->
-      <section class="scene scene--future" id="future" data-scene="future" aria-labelledby="h-future">
-        <div class="stage">
-          <div class="content">
-            <p class="eyebrow" data-i18n="future.eyebrow">Our Future</p>
-            <h2 class="heading" id="h-future" data-heading="future.heading">A World of <span class="accent">New Opportunities.</span></h2>
-            <p class="desc" data-i18n="future.desc">We are exploring new frontiers in AI, business systems and cloud solutions to build a more intelligent and connected digital world.</p>
+      <section class="chapter chapter--future" id="future" data-chapter="5" aria-labelledby="h-future">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="future.eyebrow">Our Future</p>
+          <h2 class="heading" id="h-future" data-heading="future.heading">A World of New Opportunities.</h2>
+          <p class="desc" data-i18n="future.desc">We are exploring new frontiers in AI, business systems and cloud solutions to build a more intelligent and connected digital world.</p>
+          <div class="focus glass" id="futureFocus" aria-live="polite"></div>
+          <div class="steps" id="futureSteps" role="tablist"></div>
+          <div class="actions">
             <a class="btn btn--ghost" href="#contact"><span data-i18n="future.cta">Explore Future Solutions</span><i class="btn__arrow"></i></a>
           </div>
-          <div class="hud" data-hud></div>
         </div>
       </section>
 
-      <!-- SCENE 07 — CONTACT -->
-      <section class="scene scene--contact" id="contact" data-scene="contact" aria-labelledby="h-contact">
-        <div class="stage">
-          <div class="content">
-            <p class="eyebrow" data-i18n="contact.eyebrow">Let's Build Together</p>
-            <h2 class="heading" id="h-contact" data-heading="contact.heading">Have an Idea? <span class="accent">Let's Build It.</span></h2>
-            <p class="desc" data-i18n="contact.desc">Whether you are a business, a startup or an individual, we are ready to turn your ideas into real digital solutions.</p>
-            <a class="btn btn--ghost" id="contactCta" href="#contact"><span data-i18n="contact.cta">Contact Us Now</span><i class="btn__arrow"></i></a>
+      <section class="chapter chapter--contact" id="contact" data-chapter="6" aria-labelledby="h-contact">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="contact.eyebrow">Let's Build Together</p>
+          <h2 class="heading" id="h-contact" data-heading="contact.heading">Have an Idea? Let's Build It.</h2>
+          <p class="desc" data-i18n="contact.desc">Whether you are a business, a startup or an individual, we are ready to turn your ideas into real digital solutions.</p>
+          <div class="actions">
+            <a class="btn btn--gold" id="contactCta" href="#contact"><span data-i18n="contact.cta">Contact Us Now</span><i class="btn__arrow"></i></a>
           </div>
-          <div class="hud" data-hud></div>
         </div>
       </section>
     </main>
 
+    <!-- scroll length for the story; height is set from the chapter lengths -->
+    <div class="track" id="track" aria-hidden="true"></div>
+
     <footer class="footer">
-      <a class="brand" href="#home" aria-label="Programming Worlds">
-        <img src="/assets/pw-logo.png" width="36" height="36" alt="" loading="lazy" />
-        <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
-      </a>
-      <nav class="footer__links" aria-label="Footer">
-        <a href="#home" data-i18n="nav.home">Home</a>
-        <a href="#about" data-i18n="nav.about">About Us</a>
-        <a href="#services" data-i18n="nav.services">Services</a>
-        <a href="#projects" data-i18n="nav.projects">Projects</a>
-        <a href="#contact" data-i18n="nav.contact">Contact</a>
-      </nav>
-      <div class="footer__social" id="social"></div>
-      <p class="footer__tag"><span class="footer__dash"></span><span data-i18n="footer.tagline">Code the Future</span></p>
-      <p class="footer__legal"><span data-i18n="brand.slogan">Beyond Code. Beyond Limits.</span> · © <span id="year"></span> Programming Worlds. <span data-i18n="footer.rights">All rights reserved.</span></p>
+      <div class="footer__top">
+        <a class="brand" href="#home" aria-label="Programming Worlds">
+          <img src="/assets/pw-logo.png" width="36" height="36" alt="" loading="lazy" />
+          <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
+        </a>
+        <nav class="footer__links" aria-label="Footer">
+          <a href="#home" data-i18n="nav.home">Home</a>
+          <a href="#about" data-i18n="nav.about">About Us</a>
+          <a href="#services" data-i18n="nav.services">Services</a>
+          <a href="#projects" data-i18n="nav.projects">Projects</a>
+          <a href="#contact" data-i18n="nav.contact">Contact</a>
+        </nav>
+        <div class="footer__social" id="social"></div>
+      </div>
+      <p class="footer__big" aria-hidden="true"><span data-i18n="footer.tagline">Code the Future</span></p>
+      <div class="footer__bottom">
+        <p class="footer__tag"><span class="footer__dash"></span><span data-i18n="brand.slogan">Beyond Code. Beyond Limits.</span></p>
+        <p class="footer__legal">© <span id="year"></span> Programming Worlds. <span data-i18n="footer.rights">All rights reserved.</span></p>
+      </div>
     </footer>
 
     <script type="module" src="/src/main.js"></script>

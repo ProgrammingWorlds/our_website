@@ -8,6 +8,7 @@ export const DICT = {
         'Programming Worlds turns ideas into meaningful digital solutions through software engineering, creative design, and thoughtful technology.',
     },
     brand: { line1: 'Programming', line2: 'Worlds', slogan: 'Beyond Code. Beyond Limits.' },
+    welcome: { hello: 'Welcome to', title: 'Programming Worlds', sub: 'Where ideas become digital worlds.' },
     a11y: {
       skip: 'Skip to content',
       menu: 'Open menu',
@@ -112,6 +113,7 @@ export const DICT = {
         'تحوّل Programming Worlds الأفكار إلى حلول رقمية ذات قيمة من خلال هندسة البرمجيات والتصميم الإبداعي والتقنية المدروسة.',
     },
     brand: { line1: 'Programming', line2: 'Worlds', slogan: 'ما وراء الكود. ما وراء الحدود.' },
+    welcome: { hello: 'أهلاً بك في', title: 'عوالم البرمجة', sub: 'حيث تتحوّل الأفكار إلى عوالم رقمية.' },
     a11y: {
       skip: 'انتقل إلى المحتوى',
       menu: 'فتح القائمة',

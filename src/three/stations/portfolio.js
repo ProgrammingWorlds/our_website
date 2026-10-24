@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { makeBackground, makeGlow, makeRocks, scatter, bindColor, bindNum, canvasTexture, damp, smooth, logoImage, makePlanet } from '../lib.js';
-import { svg } from '../../icons.js';
+import { makeGlow, makeRocks, makePlanet, scatter, bindColor, bindNum, canvasTexture, damp, smooth, logoImage } from '../lib.js';
 import { t } from '../../i18n.js';
+import { CHAPTERS, stepF } from '../../story.js';
 
 const TYPES = ['laptop', 'tablet', 'phone', 'laptop', 'phone', 'tablet'];
 const SIZE = { laptop: [1024, 630], tablet: [600, 820], phone: [420, 880] };
@@ -158,57 +158,43 @@ function device(type) {
   return g;
 }
 
-export function createPortfolio(engine, section) {
-  const scene = new THREE.Scene();
-  const root = new THREE.Group();
-  scene.add(root);
-  const bg = makeBackground({
-    top: ['#030b20', '#eef4fe'],
-    bottom: ['#040c26', '#d3e0f7'],
-    glows: [
-      { x: 0.62, y: 0.55, r: 0.4, i: 0.55, dark: '#1f44c8', light: '#ffffff' },
-      { x: 0.62, y: 0.82, r: 0.2, i: 0.5, dark: '#3d6bff', light: '#cfdcfa' },
-    ],
-    nebula: 0.55,
-  });
-  scene.add(bg);
-  const hemi = new THREE.HemisphereLight();
-  bindColor(hemi, 'color', '#7d9bff', '#ffffff');
-  bindColor(hemi, 'groundColor', '#060a1c', '#c5d4f1');
-  bindNum(hemi, 'intensity', 0.68, 1.08);
-  const key = new THREE.DirectionalLight('#ffffff', 2);
-  key.position.set(-3, 6, 7);
-  bindNum(key, 'intensity', 1.3, 1.5);
-  const under = new THREE.PointLight('#3d6bff', 50, 12, 1.4);
-  under.position.set(0, -1, 3);
-  bindNum(under, 'intensity', 50, 15);
-  scene.add(hemi, key, under);
-  bindNum(scene, 'environmentIntensity', 0.4, 0.63);
+const Z = -340;
+const CH = CHAPTERS[4];
+const RX = 3.4, RZ = 2.1;
 
+// Station 05 — a turntable of devices. Each scroll step turns the ring to
+// bring the next capability showcase to the front.
+export function createPortfolio(world, { onThumbs } = {}) {
+  const group = new THREE.Group();
+  group.position.z = Z;
   const vis = new THREE.Group();
-  root.add(vis);
+  vis.scale.setScalar(1.25);
+  vis.position.y = -0.9;
+  group.add(vis);
 
-  // platform
   const platMat = new THREE.MeshPhysicalMaterial({ roughness: 0.15, metalness: 0.5, clearcoat: 1 });
   bindColor(platMat, 'color', '#0b1433', '#f3f6fd');
-  const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.9, 4.1, 0.32, 96), platMat);
+  const plat = new THREE.Mesh(new THREE.CylinderGeometry(4, 4.2, 0.32, 96), platMat);
   plat.position.y = -0.2;
   vis.add(plat);
   const edgeMat = new THREE.MeshBasicMaterial({ toneMapped: false });
   bindColor(edgeMat, 'color', '#6d90ff', '#5a7dff');
-  const edge = new THREE.Mesh(new THREE.TorusGeometry(3.95, 0.03, 8, 160), edgeMat);
-  edge.rotation.x = Math.PI / 2;
-  edge.position.y = -0.04;
-  const edge2 = edge.clone();
-  edge2.scale.setScalar(0.78);
-  edge2.position.y = -0.03;
-  vis.add(edge, edge2);
-  const platGlow = makeGlow(11, '#3d6bff', '#a9c0ff', 0.55, 0.4);
-  platGlow.position.set(0, -0.6, 0);
+  const edges = [1, 0.78, 0.56].map((s, i) => {
+    const e = new THREE.Mesh(new THREE.TorusGeometry(4.05 * s, i ? 0.018 : 0.03, 8, 180), edgeMat);
+    e.rotation.x = Math.PI / 2;
+    e.position.y = -0.03;
+    vis.add(e);
+    return e;
+  });
+  const platGlow = makeGlow(12, '#3d6bff', '#a9c0ff', 0.55, 0.4);
+  platGlow.position.set(0, -0.7, 0);
   platGlow.scale.y = 3;
   vis.add(platGlow);
+  const spot = new THREE.PointLight('#5d86ff', 45, 14, 1.4);
+  spot.position.set(0, 1, 4);
+  bindNum(spot, 'intensity', 45, 14);
+  vis.add(spot);
 
-  // ring of devices
   const ring = new THREE.Group();
   vis.add(ring);
   const devices = TYPES.map((type) => {
@@ -217,114 +203,61 @@ export function createPortfolio(engine, section) {
     return d;
   });
 
-  const rocks = makeRocks([...scatter(16, 41, (r) => ({ p: [(r() - 0.5) * 24, -4.4 - r() * 1.2, -2 + r() * 3], s: 0.3 + r() * r() * 1.2 })), { p: [-9.5, -2.6, 0], s: 1.4 }, { p: [9.2, 3.4, -3], s: 0.4 }], 19);
-  root.add(rocks);
-  const moon = makePlanet(0.45, { seed: 14, colors: { a: ['#0c1d55', '#d3def4'], b: ['#3d6bff', '#ffffff'], rim: ['#6d90ff', '#bcd3ff'] }, seg: 40 });
-  root.add(moon);
-
-  // ----- carousel DOM --------------------------------------------------
-  const track = section.querySelector('#carouselTrack');
-  const arrows = section.querySelectorAll('.carousel__arrow');
-  arrows.forEach((a) => (a.innerHTML = svg('arrow')));
-  track.innerHTML = TYPES.map((_, i) => `<button role="tab" type="button" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}"><img alt="" /></button>`).join('');
-  const thumbs = [...track.children];
-  let active = 0;
-  const rot = { v: 0, target: 0 };
-  function select(i, focus = false) {
-    const n = TYPES.length;
-    const next = ((i % n) + n) % n;
-    // shortest path around the ring
-    let delta = next - active;
-    if (delta > n / 2) delta -= n;
-    if (delta < -n / 2) delta += n;
-    rot.target += delta;
-    active = next;
-    thumbs.forEach((b, j) => {
-      b.setAttribute('aria-selected', String(j === active));
-      b.tabIndex = j === active ? 0 : -1;
-    });
-    if (focus) thumbs[active].focus();
-  }
-  thumbs.forEach((b, i) => b.addEventListener('click', () => select(i)));
-  arrows.forEach((a) => a.addEventListener('click', () => select(active + Number(a.dataset.dir) * engine.ctx.dir)));
-  track.addEventListener('keydown', (e) => {
-    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-    if (d) {
-      e.preventDefault();
-      select(active + d * engine.ctx.dir, true);
-    }
-  });
-  // swipe / drag
-  const stage = section.querySelector('.stage');
-  let dragX = null;
-  stage.style.touchAction = 'pan-y';
-  stage.addEventListener('pointerdown', (e) => {
-    if (!e.target.closest('button, a')) dragX = e.clientX;
-  });
-  addEventListener('pointerup', (e) => {
-    if (dragX == null) return;
-    const dx = e.clientX - dragX;
-    dragX = null;
-    if (Math.abs(dx) > 40) select(active + (dx < 0 ? 1 : -1) * engine.ctx.dir);
-  });
+  const rocks = makeRocks([...scatter(12, 41, (r) => ({ p: [(r() - 0.5) * 30, -4.5 - r() * 2, (r() - 0.5) * 14], s: 0.25 + r() * r() * 1.1 })), ...scatter(5, 42, (r) => ({ p: [(r() - 0.5) * 30, (r() - 0.2) * 12, -6 - r() * 10], s: 0.06 + r() * 0.2 }))], 19);
+  group.add(rocks);
+  const moon = makePlanet(0.6, { seed: 14, colors: { a: ['#0c1d55', '#d3def4'], b: ['#3d6bff', '#ffffff'], rim: ['#6d90ff', '#bcd3ff'] }, seg: 40 });
+  moon.position.set(9, 4.5, -6);
+  group.add(moon);
 
   function onLang(lang) {
     const titles = t(lang, 'portfolio.screens');
     const cta = t(lang, 'portfolio.screenCta');
     const rtl = lang === 'ar';
-    const el = section.querySelector('#carousel');
-    el.setAttribute('aria-label', t(lang, 'portfolio.eyebrow'));
-    arrows[0].setAttribute('aria-label', t(lang, 'a11y.prev'));
-    arrows[1].setAttribute('aria-label', t(lang, 'a11y.next'));
-    devices.forEach((d, i) => {
+    const thumbs = devices.map((d, i) => {
       const canvas = drawScreen(i, TYPES[i], titles[i], cta, rtl);
       const old = d.userData.screenMat.map;
       d.userData.screenMat.map = canvasTexture(canvas);
       d.userData.screenMat.needsUpdate = true;
       old?.dispose();
-      const thumb = document.createElement('canvas');
-      thumb.width = 192;
-      thumb.height = 120;
-      const tg = thumb.getContext('2d');
+      const th = document.createElement('canvas');
+      th.width = 192;
+      th.height = 120;
       const s = Math.max(192 / canvas.width, 120 / canvas.height);
-      tg.drawImage(canvas, (192 - canvas.width * s) / 2, (120 - canvas.height * s) / 2, canvas.width * s, canvas.height * s);
-      const im = thumbs[i].querySelector('img');
-      im.src = thumb.toDataURL('image/jpeg', 0.8);
-      thumbs[i].setAttribute('aria-label', titles[i]);
+      th.getContext('2d').drawImage(canvas, (192 - canvas.width * s) / 2, (120 - canvas.height * s) / 2, canvas.width * s, canvas.height * s);
+      return th.toDataURL('image/jpeg', 0.8);
     });
+    onThumbs?.(thumbs);
   }
   // redraw once the logo bitmap is ready
-  logoImage().addEventListener('load', () => onLang(engine.ctx.lang), { once: true });
+  logoImage().addEventListener('load', () => onLang(world.ctx.lang), { once: true });
 
-  let base = { x: 0, y: 0, s: 1 };
-  function layout(ctx) {
-    const m = ctx.mode;
-    const [x, y] = engine.frac(m === 'mobile' ? 0.5 : m === 'tablet' ? 0.55 : 0.635, m === 'mobile' ? 0.66 : m === 'tablet' ? 0.6 : 0.53);
-    base = { x, y, s: m === 'mobile' ? Math.min(0.55, ctx.viewW / 9) : m === 'tablet' ? 0.85 : 1.22 };
-    vis.position.set(x, y - 0.6 * base.s, 0);
-    vis.scale.setScalar(base.s);
-    const [mx, my] = engine.frac(0.94, 0.12);
-    moon.position.set(mx, my, -3);
-    rocks.scale.x = ctx.dir;
-  }
-
-  const RX = 3.3, RZ = 2.0;
-  function update(ctx, st) {
+  const rot = { v: 0 };
+  function update(ctx, local) {
     const tm = ctx.time;
-    rot.v = engine.reduced ? rot.target : damp(rot.v, rot.target, 5, ctx.dt);
-    const enter = smooth(0, 1, st.enter);
+    rot.v = world.reduced ? stepF(CH, local) : damp(rot.v, stepF(CH, local), 5, ctx.dt);
+    const enter = smooth(0, 0.14, local);
     devices.forEach((d, i) => {
       const a = ((i - rot.v) / TYPES.length) * Math.PI * 2;
-      const front = Math.cos(a); // 1 = front
-      d.position.set(Math.sin(a) * RX * ctx.dir, 0.05 + Math.sin(tm * 0.9 + i * 1.3) * 0.06 + (1 - enter) * (2 + i * 0.3), Math.cos(a) * RZ);
+      const front = (Math.cos(a) + 1) / 2;
+      d.position.set(Math.sin(a) * RX * ctx.dir, 0.05 + Math.sin(tm * 0.9 + i * 1.3) * 0.06 + (1 - enter) * (2.5 + i * 0.4), Math.cos(a) * RZ);
       d.rotation.y = Math.sin(a) * 0.55 * ctx.dir;
-      const sc = 0.62 + 0.38 * ((front + 1) / 2);
-      d.scale.setScalar(sc * (d.userData.type === 'laptop' ? 0.95 : 1));
+      d.scale.setScalar((0.6 + 0.4 * front) * (d.userData.type === 'laptop' ? 0.95 : 1));
     });
-    vis.rotation.x = 0.1 + ctx.pointer.y * 0.04;
-    vis.rotation.y = ctx.pointer.x * 0.12;
-    vis.position.y = base.y - 0.6 * base.s + Math.sin(tm * 0.5) * 0.05;
+    edges.forEach((e, i) => (e.rotation.z = tm * (i % 2 ? -0.1 : 0.06)));
+    vis.rotation.x = 0.06;
+    vis.position.y = -0.9 + Math.sin(tm * 0.5) * 0.05;
+    moon.rotation.y = tm * 0.1;
   }
 
-  return { id: 'portfolio', section, scene, root, bg, update, layout, onLang };
+  return {
+    id: 'portfolio',
+    group,
+    update,
+    onLang,
+    keys: [
+      { at: 0, pos: [0, 6, Z + 30], look: [0, 0, Z], f: 0.3 },
+      { at: 0.14, pos: [0, 3.2, Z + 14.5], look: [0, 0.2, Z], f: 1 },
+      { at: 0.86, pos: [0.7, 2.8, Z + 14], look: [0, 0.2, Z], f: 1 },
+    ],
+  };
 }

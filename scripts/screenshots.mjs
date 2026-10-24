@@ -1,19 +1,19 @@
-// Captures every scene in all four states (dark/light × en/ar).
+// Captures the story at fixed positions in all four states (dark/light × en/ar).
 // Usage: npm run build && npx vite preview --port 4173 & npm run shots
-// Options: --url=http://localhost:4173 --w=1440 --h=1100 --states=dark-en,light-ar --scenes=home,about
+// Options: --url=http://localhost:4173 --w=1440 --h=900 --states=dark-en,light-ar --shots=home,about --out=screenshots
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').split('=')[1] || d;
 const URL = arg('url', 'http://localhost:4173');
-const W = Number(arg('w', 1440)), H = Number(arg('h', 1200));
+const W = Number(arg('w', 1440)), H = Number(arg('h', 900));
 const OUT = arg('out', 'screenshots');
 const STATES = arg('states', 'dark-en,light-en,dark-ar,light-ar').split(',');
-const SCENES = arg('scenes', 'home,services,about,process,projects,future,contact,footer').split(',');
+// story positions (chapter index + local progress)
+const AT = { home: 0.02, warp: 0.9, services: 1.5, about: 2.72, process: 3.5, projects: 4.5, future: 5.6, contact: 6.7, footer: -1 };
+const SHOTS = arg('shots', Object.keys(AT).join(',')).split(',');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-// scroll position inside tall (sticky) sections, as a fraction of their scroll range
-const STICKY_AT = { about: 0.75, process: 0.22 };
 
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await puppeteer.launch({
@@ -29,21 +29,11 @@ for (const state of STATES) {
   page.on('console', (m) => m.type() === 'error' && console.log(`[${state}] console:`, m.text()));
   page.on('pageerror', (e) => console.log(`[${state}] pageerror:`, e.message));
   await page.goto(`${URL}/?theme=${theme}&lang=${lang}&quality=high&capture`, { waitUntil: 'networkidle0' });
-  await new Promise((r) => setTimeout(r, 3500));
-  for (const id of SCENES) {
-    await page.evaluate(
-      (id, stickyAt) => {
-        document.documentElement.style.scrollBehavior = 'auto';
-        if (id === 'footer') return scrollTo(0, document.body.scrollHeight);
-        const el = document.getElementById(id);
-        const top = el.getBoundingClientRect().top + scrollY;
-        const range = Math.max(0, el.offsetHeight - innerHeight);
-        scrollTo(0, top + range * (stickyAt[id] ?? 0));
-      },
-      id,
-      STICKY_AT,
-    );
-    await new Promise((r) => setTimeout(r, 2600));
+  await page.waitForFunction(() => !document.documentElement.classList.contains('is-loading'), { timeout: 120000 });
+  await new Promise((r) => setTimeout(r, 3000));
+  for (const id of SHOTS) {
+    await page.evaluate((u) => (u < 0 ? scrollTo(0, document.body.scrollHeight) : window.__pw.toU(u)), AT[id]);
+    await new Promise((r) => setTimeout(r, 3500));
     const file = path.join(OUT, `${state}-${id}.png`);
     await page.screenshot({ path: file });
     console.log('saved', file);
