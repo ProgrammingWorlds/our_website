@@ -3,7 +3,19 @@ import { gsap } from 'gsap';
 import { applyLang, setupTheme, setupLang, setupNav, setupCursor, setupTilt, createLoader } from './ui.js';
 import { createScroll } from './scroll.js';
 import { createChapters } from './chapters.js';
-import { CHAPTERS, arriveAt } from './story.js';
+import { createContactForm } from './contact-form.js';
+import { CHAPTERS, chapterIndex, arriveAt } from './story.js';
+
+// 3D stations by scene id; each page only downloads the scenes its story uses.
+const SCENES = {
+  hero: () => import('./three/stations/hero.js').then((m) => m.createHero),
+  about: () => import('./three/stations/about.js').then((m) => m.createAbout),
+  services: () => import('./three/stations/services.js').then((m) => m.createServices),
+  process: () => import('./three/stations/process.js').then((m) => m.createProcess),
+  portfolio: () => import('./three/stations/portfolio.js').then((m) => m.createPortfolio),
+  future: () => import('./three/stations/future.js').then((m) => m.createFuture),
+  contact: () => import('./three/stations/contact.js').then((m) => m.createContact),
+};
 
 const root = document.documentElement;
 const params = new URLSearchParams(location.search);
@@ -17,11 +29,20 @@ if (reduced) root.classList.add('reduced');
 let lang = root.lang === 'ar' ? 'ar' : 'en';
 gsap.ticker.lagSmoothing(capture ? 0 : 500, 33);
 
+// the full welcome plays once per session; later page loads skip straight in
+let quick = false;
+try {
+  quick = sessionStorage.getItem('pw-intro') === '1';
+  sessionStorage.setItem('pw-intro', '1');
+} catch { /* storage unavailable */ }
+
 applyLang(lang);
-const loader = createLoader({ reduced: reduced || capture });
+const loader = createLoader({ reduced: reduced || capture, quick });
 const scroll = createScroll({ reduced: reduced || capture });
 const chapters = createChapters({ scroll, reduced });
+const form = createContactForm();
 chapters.build(lang);
+form.build(lang);
 chapters.hideHero();
 setupNav({ lockScroll: (v) => (v ? scroll.lenis?.stop() : scroll.lenis?.start(), (document.body.style.overflow = v ? 'hidden' : '')) });
 setupCursor({ reduced: reduced || capture });
@@ -41,26 +62,15 @@ async function boot() {
   loader.progress(12);
   if (hasWebGL()) {
     try {
-      const [{ World }, lib, ...mods] = await Promise.all([
-        import('./three/world.js'),
-        import('./three/lib.js'),
-        import('./three/stations/hero.js'),
-        import('./three/stations/services.js'),
-        import('./three/stations/about.js'),
-        import('./three/stations/process.js'),
-        import('./three/stations/portfolio.js'),
-        import('./three/stations/future.js'),
-        import('./three/stations/contact.js'),
-      ]);
+      const [{ World }, lib, ...factories] = await Promise.all([import('./three/world.js'), import('./three/lib.js'), ...CHAPTERS.map((c) => SCENES[c.scene]())]);
       loader.progress(45);
       world = new World(document.getElementById('gl'), { reduced, quality: params.get('quality'), capture });
       world.ctx.lang = lang;
       world.ctx.dir = root.dir === 'rtl' ? -1 : 1;
-      world.navigate = (u) => scroll.toU(u);
-      const factories = [mods[0].createHero, mods[1].createServices, mods[2].createAbout, mods[3].createProcess, (w) => mods[4].createPortfolio(w, { onThumbs: chapters.setThumbs }), mods[5].createFuture, mods[6].createContact];
+      world.select = (id, k) => chapters.select(id, k);
       factories.forEach((fn, i) => world.add(fn(world), i));
       world.seal();
-      hero = world.stations[0];
+      hero = world.stations.find((s) => s.id === 'hero');
       setupTheme((mix) => lib.applyTheme(mix), { reduced, onKick });
       loader.progress(70);
       await document.fonts?.ready;
@@ -84,6 +94,7 @@ async function boot() {
     lang = l;
     applyLang(l);
     chapters.build(l);
+    form.build(l);
     chapters.replay();
     if (world) {
       world.ctx.lang = l;
@@ -94,17 +105,18 @@ async function boot() {
 
   // land on a deep link (#services …) without the fly-through
   const ci = CHAPTERS.findIndex((c) => '#' + c.id === location.hash);
-  if (ci > 0) scroll.toU(ci + arriveAt(CHAPTERS[ci]), { immediate: true });
+  if (ci > 0) chapters.goChapter(ci, { immediate: true });
   else scrollTo(0, 0);
 
-  if (capture) window.__pw = { toU: (u) => scroll.toU(u, { immediate: true }) };
+  // hooks for the screenshot and end-to-end scripts
+  if (capture || params.has('test')) window.__pw = { toU: (u) => scroll.toU(u, { immediate: true }), arrive: (id) => chapterIndex(id) + arriveAt(CHAPTERS[chapterIndex(id)]), chapters, scroll };
 
   let last = performance.now();
   gsap.ticker.add((time) => {
     const now = performance.now();
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
-    const st = scroll.update(time * 1000);
+    const st = chapters.view(scroll.update(time * 1000));
     chapters.update(st);
     if (world) {
       world.avoid = chapters.activeRect();

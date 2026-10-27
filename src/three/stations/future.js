@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { makePlanet, makeOrbit, makeGlow, makeRocks, scatter, bindNum, damp, smooth } from '../lib.js';
 import { t } from '../../i18n.js';
-import { CHAPTERS, stepF, stepAt } from '../../story.js';
+import { chapter, stepF, stepAt } from '../../story.js';
 
 const Z = -420;
-const CH = CHAPTERS[5];
+const CH = chapter('future');
 const D = 12;
 // four planned worlds on an arc; the camera turns to face each in turn
 const WORLDS = [
@@ -49,7 +49,7 @@ export function createFuture(world) {
     el.type = 'button';
     el.tabIndex = -1;
     el.className = 'label label--planet';
-    el.addEventListener('click', () => world.navigate(5 + stepAt(CH, k)));
+    el.addEventListener('click', () => world.select('future', k));
     return { el, anchor: planets[k], offset: new THREE.Vector3(0, -WORLDS[k].r - 0.9, 0), alpha: 0 };
   });
   function onLang(lang) {

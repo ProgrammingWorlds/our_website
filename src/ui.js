@@ -2,6 +2,7 @@ import { gsap } from 'gsap';
 import { t } from './i18n.js';
 import { svg } from './icons.js';
 import { SITE } from './config.js';
+import { CHAPTERS, STORY } from './story.js';
 
 const root = document.documentElement;
 export const store = {
@@ -51,15 +52,23 @@ export function applyLang(lang) {
   });
   document.querySelectorAll('[data-heading]').forEach((el) => renderHeading(el, lang));
   document.querySelectorAll('.panel .desc').forEach(splitWords);
-  document.title = t(lang, 'meta.title');
-  document.querySelector('meta[name="description"]').setAttribute('content', t(lang, 'meta.description'));
+  document.querySelectorAll('[data-i18n-label]').forEach((el) => el.setAttribute('aria-label', t(lang, el.dataset.i18nLabel)));
+  const meta = STORY === 'universal' ? 'meta.universal' : 'meta';
+  document.title = t(lang, `${meta}.title`);
+  document.querySelector('meta[name="description"]').setAttribute('content', t(lang, `${meta}.description`));
   root.lang = lang;
   root.dir = lang === 'ar' ? 'rtl' : 'ltr';
-  document.querySelector('#langBtn').setAttribute('aria-label', t(lang, 'a11y.lang'));
-  document.querySelector('.lang__code').textContent = lang.toUpperCase();
-  document.querySelectorAll('#langMenu li').forEach((li) => li.setAttribute('aria-selected', String(li.dataset.lang === lang)));
+  // the toggle names the language it switches to
+  const toggle = document.querySelector('#langToggle');
+  toggle.setAttribute('aria-label', t(lang, 'a11y.lang'));
+  toggle.title = t(lang, 'a11y.lang');
+  const code = document.querySelector('#langCode');
+  code.textContent = t(lang, 'a11y.langShort');
+  code.lang = lang === 'ar' ? 'en' : 'ar';
   document.querySelector('#rail').setAttribute('aria-label', t(lang, 'a11y.rail'));
-  document.querySelector('#hudRoll').innerHTML = Array.from({ length: 7 }, (_, i) => `<span>${String(i + 1).padStart(2, '0')}</span>`).join('');
+  document.querySelector('#hudRoll').innerHTML = CHAPTERS.map((_, i) => `<span>${String(i + 1).padStart(2, '0')}</span>`).join('');
+  document.querySelector('#hudTotal').textContent = `/ ${String(CHAPTERS.length).padStart(2, '0')}`;
+  document.querySelector('#scrollCue').setAttribute('aria-label', t(lang, 'a11y.scroll'));
   updateThemeLabel(lang);
   updateMenuLabel(lang);
   buildSocial(lang);
@@ -117,7 +126,7 @@ export function setupTheme(onMix, { reduced, onKick = () => {} }) {
       const [x, y] = origin || [innerWidth - 120, 40];
       const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
       vt.ready.then(() => {
-        root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] }, { duration: 1250, easing: 'cubic-bezier(.16,1,.3,1)', pseudoElement: '::view-transition-new(root)' });
+        root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] }, { duration: 900, easing: 'cubic-bezier(.16,1,.3,1)', pseudoElement: '::view-transition-new(root)' });
       });
     } else {
       commit();
@@ -136,71 +145,42 @@ export function setupTheme(onMix, { reduced, onKick = () => {} }) {
 }
 
 /* ------------------------------------------------------------- language */
-const LANG_NAME = { en: 'English', ar: 'العربية' };
-// Bars sweep across in the new reading direction, the language name decodes in
-// the middle, the page swaps underneath, then the bars open again.
+// A quick curtain: bars sweep across in the new reading direction, the page
+// swaps underneath while covered, then the bars open again (~0.7 s in total).
 function curtain(lang, swap, onKick) {
   const el = document.createElement('div');
   el.className = 'curtain';
   el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = `${'<i></i>'.repeat(8)}<div class="curtain__mid"><img src="/assets/pw-logo.png" alt="" width="64" height="64" /><p lang="${lang}"></p><span></span></div>`;
+  el.innerHTML = '<i></i>'.repeat(8);
   document.body.appendChild(el);
   const bars = el.querySelectorAll('i');
-  const mid = el.querySelector('.curtain__mid');
-  const label = mid.querySelector('p');
   const from = lang === 'ar' ? 'end' : 'start';
-  const name = LANG_NAME[lang];
-  const o = { p: 0 };
-  const pool = name + 'PW01<>/{}';
-  onKick(1);
+  onKick(0.8);
+  // the swap never waits on animation timing: on a struggling device the timer does it
+  let swapped = false;
+  const once = () => !swapped && ((swapped = true), swap());
+  setTimeout(once, 600);
   gsap.timeline({ onComplete: () => el.remove() })
-    .fromTo(bars, { yPercent: 101 }, { yPercent: 0, duration: 0.55, ease: 'expo.inOut', stagger: { each: 0.045, from } })
-    .fromTo(mid, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(2)' }, '-=0.2')
-    .to(o, {
-      p: 1, duration: 0.6, ease: 'power2.out',
-      onUpdate: () => {
-        const n = Math.floor(o.p * name.length);
-        label.textContent = name.slice(0, n) + Array.from({ length: name.length - n }, () => pool[(Math.random() * pool.length) | 0]).join('');
-      },
-    }, '<')
-    .fromTo(mid.querySelector('span'), { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: 'expo.out' }, '<')
-    .add(swap)
-    .to(mid, { opacity: 0, y: -20, duration: 0.3, ease: 'power2.in' }, '+=0.15')
-    .add(() => onKick(0.8))
-    .to(bars, { yPercent: -101, duration: 0.6, ease: 'expo.inOut', stagger: { each: 0.045, from } }, '-=0.1');
+    .fromTo(bars, { yPercent: 101 }, { yPercent: 0, duration: 0.3, ease: 'power3.in', stagger: { each: 0.02, from } })
+    .add(once)
+    .to(bars, { yPercent: -101, duration: 0.4, ease: 'power3.out', stagger: { each: 0.02, from } }, '+=0.02');
 }
 
+/** One button switches straight to the other language — no menu. */
 export function setupLang(onChange, { reduced, onKick = () => {} } = {}) {
-  const btn = document.querySelector('#langBtn');
-  const menu = document.querySelector('#langMenu');
-  const opts = [...menu.querySelectorAll('li')];
-  const open = (v) => {
-    menu.hidden = !v;
-    btn.setAttribute('aria-expanded', String(v));
-    if (v) (opts.find((o) => o.dataset.lang === root.lang) || opts[0]).focus();
-  };
-  btn.addEventListener('click', () => open(menu.hidden));
-  const choose = (lang) => {
-    open(false);
-    btn.focus();
-    if (lang === root.lang) return;
+  const btn = document.querySelector('#langToggle');
+  let busy = false;
+  btn.addEventListener('click', () => {
+    if (busy) return;
+    const lang = root.lang === 'ar' ? 'en' : 'ar';
     store.set('pw-lang', lang);
     if (reduced) return onChange(lang);
-    curtain(lang, () => onChange(lang), onKick);
-  };
-  opts.forEach((o) => {
-    o.addEventListener('click', () => choose(o.dataset.lang));
-    o.addEventListener('keydown', (e) => {
-      const i = opts.indexOf(o);
-      if (e.key === 'ArrowDown') opts[(i + 1) % opts.length].focus();
-      else if (e.key === 'ArrowUp') opts[(i - 1 + opts.length) % opts.length].focus();
-      else if (e.key === 'Enter' || e.key === ' ') choose(o.dataset.lang);
-      else if (e.key === 'Escape') { open(false); btn.focus(); }
-      else return;
-      e.preventDefault();
-    });
+    busy = true;
+    curtain(lang, () => {
+      onChange(lang);
+      busy = false;
+    }, onKick);
   });
-  document.addEventListener('click', (e) => !e.target.closest('#lang') && !menu.hidden && open(false));
 }
 
 /* ------------------------------------------------------------- nav */
@@ -237,8 +217,6 @@ export function setupNav({ lockScroll }) {
   menu.addEventListener('click', (e) => e.target.closest('a') && setMenu(false));
   addEventListener('keydown', (e) => e.key === 'Escape' && !menu.hidden && (setMenu(false), menuBtn.focus()));
 
-  const cta = document.querySelector('#contactCta');
-  if (SITE.email) cta.href = `mailto:${SITE.email}`;
   document.querySelector('#year').textContent = new Date().getFullYear();
 }
 
@@ -254,8 +232,9 @@ export function setupCursor({ reduced }) {
   addEventListener('pointermove', (e) => {
     p.x = e.clientX;
     p.y = e.clientY;
-    el.classList.remove('is-out');
-    const hit = e.target.closest?.('a, button, [role="option"]');
+    // text fields keep the native caret cursor; the ring steps aside
+    el.classList.toggle('is-out', !!e.target.closest?.('input, textarea, .device__live'));
+    const hit = e.target.closest?.('a, button, label, select');
     el.classList.toggle('is-hover', !!hit);
     const b = e.target.closest?.('.btn');
     if (b) {
@@ -298,9 +277,10 @@ export function setupTilt({ reduced }) {
 
 /* ------------------------------------------------------------- loader */
 // Splash: a starfield flying at the viewer, the mark inside a progress ring,
-// and a welcome line. It holds long enough to be read, then an iris opens
-// from the centre into the 3D world while the stars jump to warp.
-const HOLD = 0.8; // seconds the finished welcome stays readable
+// and a welcome line. It holds just long enough to be read, then an iris opens
+// from the centre into the 3D world while the stars jump to warp. The full
+// welcome plays once per session; later page loads only fade the splash out.
+const HOLD = 0.25; // seconds the finished welcome stays readable
 
 function starfield(canvas) {
   const g = canvas.getContext('2d');
@@ -362,7 +342,7 @@ function splitChars(el) {
   return el.querySelectorAll('.ch');
 }
 
-export function createLoader({ reduced } = {}) {
+export function createLoader({ reduced, quick } = {}) {
   const el = document.querySelector('#loader');
   const ring = document.querySelector('#loaderRing');
   const count = document.querySelector('#loaderCount');
@@ -372,18 +352,20 @@ export function createLoader({ reduced } = {}) {
     ring.style.strokeDashoffset = String(100 - s.v);
     count.textContent = String(Math.round(s.v)).padStart(3, '0');
   };
-  const stars = reduced ? null : starfield(document.querySelector('#loaderStars'));
-  if (!reduced) {
+  const full = !reduced && !quick;
+  const stars = full ? starfield(document.querySelector('#loaderStars')) : null;
+  if (quick) el.classList.add('loader--quick');
+  if (full) {
     const title = splitChars(el.querySelector('.loader__title'));
     const hello = splitChars(el.querySelector('.loader__hello'));
-    const intro = gsap.timeline({ delay: 0.15 });
+    const intro = gsap.timeline({ delay: 0.05 });
     welcomed = new Promise((r) => intro.eventCallback('onComplete', r));
     intro
-      .fromTo('.loader__mark', { scale: 0.6, opacity: 0, rotate: -40 }, { scale: 1, opacity: 1, rotate: 0, duration: 1.2, ease: 'expo.out' })
-      .fromTo(hello, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out', stagger: 0.025 }, 0.35)
-      .fromTo(title, { opacity: 0, yPercent: 60, rotateX: -80, filter: 'blur(8px)' }, { opacity: 1, yPercent: 0, rotateX: 0, filter: 'blur(0px)', duration: 1, ease: 'expo.out', stagger: 0.045 }, 0.55)
-      .fromTo('.loader__sub', { opacity: 0, y: 14, letterSpacing: '0.3em' }, { opacity: 1, y: 0, letterSpacing: '0.02em', duration: 1.2, ease: 'expo.out' }, 1.15)
-      .fromTo('.loader__foot', { opacity: 0 }, { opacity: 1, duration: 0.8 }, 1.2);
+      .fromTo('.loader__mark', { scale: 0.6, opacity: 0, rotate: -40 }, { scale: 1, opacity: 1, rotate: 0, duration: 0.9, ease: 'expo.out' })
+      .fromTo(hello, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', stagger: 0.02 }, 0.2)
+      .fromTo(title, { opacity: 0, yPercent: 60, rotateX: -80 }, { opacity: 1, yPercent: 0, rotateX: 0, duration: 0.8, ease: 'expo.out', stagger: 0.03 }, 0.3)
+      .fromTo('.loader__sub', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.8, ease: 'expo.out' }, 0.7)
+      .fromTo('.loader__foot', { opacity: 0 }, { opacity: 1, duration: 0.6 }, 0.7);
   }
   return {
     progress(v) {
@@ -392,32 +374,34 @@ export function createLoader({ reduced } = {}) {
     async done(skip, onOpen = () => {}) {
       if (!skip) await welcomed;
       return new Promise((resolve) => {
+        const finish = () => {
+          if (stars) stars.on = false;
+          el.remove();
+        };
+        if (skip || quick) {
+          s.v = 100;
+          render();
+          root.classList.remove('is-loading');
+          onOpen();
+          if (skip) finish();
+          else gsap.to(el, { opacity: 0, duration: 0.45, ease: 'power2.out', onComplete: finish });
+          return resolve();
+        }
         gsap.to(s, {
-          v: 100, duration: skip ? 0 : 0.6, delay: skip ? 0 : HOLD, ease: 'power2.out', onUpdate: render,
+          v: 100, duration: 0.5, delay: HOLD, ease: 'power2.out', onUpdate: render,
           onComplete: () => {
             root.classList.remove('is-loading');
-            if (skip) {
-              if (stars) stars.on = false;
-              el.remove();
-              onOpen();
-              return resolve();
-            }
             const iris = { r: 0 };
-            const tl = gsap.timeline({
-              onComplete: () => {
-                if (stars) stars.on = false;
-                el.remove();
-              },
-            });
-            tl.to(stars || {}, { speed: 2.6, duration: 0.9, ease: 'power3.in' })
-              .to('.loader__core', { scale: 1.12, opacity: 0, filter: 'blur(10px)', duration: 0.7, ease: 'power3.in' }, 0.1)
-              .to('.loader__foot', { opacity: 0, duration: 0.4 }, 0)
-              .add(onOpen, 0.6)
+            gsap.timeline({ onComplete: finish })
+              .to(stars || {}, { speed: 2.6, duration: 0.8, ease: 'power3.in' })
+              .to('.loader__core', { scale: 1.12, opacity: 0, duration: 0.5, ease: 'power3.in' }, 0.05)
+              .to('.loader__foot', { opacity: 0, duration: 0.3 }, 0)
+              .add(onOpen, 0.35)
               .to(iris, {
-                r: Math.hypot(innerWidth, innerHeight) * 0.6, duration: 1.3, ease: 'expo.inOut',
+                r: Math.hypot(innerWidth, innerHeight) * 0.6, duration: 1, ease: 'expo.inOut',
                 onUpdate: () => el.style.setProperty('--iris', `${iris.r}px`),
-              }, 0.55)
-              .add(resolve, 1.2);
+              }, 0.3)
+              .add(resolve, 0.8);
           },
         });
       });

@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { makeAstronaut, makeGlow, bindColor, bindNum, themeBlend, canvasTexture, damp, smooth, GLOBAL } from '../lib.js';
+import { makeNova, makeGlow, bindColor, bindNum, themeBlend, canvasTexture, damp, GLOBAL } from '../lib.js';
 import { drawIcon } from '../../icons.js';
 import { t } from '../../i18n.js';
-import { CHAPTERS, stepAt, stepF } from '../../story.js';
+import { chapter, stepAt, stepF } from '../../story.js';
 
 const Z = -205;
 const RH = 4.6; // hexagon radius
 const FLOOR = -RH * Math.sin(Math.PI / 3);
 const T0 = Z + 12, T1 = Z - 100; // tunnel extent
-const CH = CHAPTERS[3];
+const CH = chapter('process');
 const ICONS = ['bulb', 'strategy', 'design', 'dev', 'test', 'rocket'];
 // camera keys (see below) travel linearly from K0 to K1 between local 0.1 and 0.9
 const K0 = Z + 6, K1 = Z - 84;
@@ -72,7 +72,7 @@ function drawBoard(k, title, desc, label, rtl) {
 }
 
 // Station 04 — a hexagonal tunnel. The camera travels it, passing one gate
-// per stage of the process, while an astronaut walks the journey ahead.
+// per stage of the process, while Nova, the mascot, leads the way.
 export function createProcess(world) {
   const group = new THREE.Group();
 
@@ -113,29 +113,27 @@ export function createProcess(world) {
   floor.position.set(0, FLOOR, (T0 + T1) / 2);
   group.add(floor);
 
-  // gates + stage boards
+  // gates + stage boards. All boards sit on the side away from the text panel
+  // and turn toward the camera, so the active stage is always fully in view.
   const gateGeo = new THREE.TorusGeometry(RH, 0.07, 6, 6);
-  const gates = GATES.map((z, k) => {
+  const gates = GATES.map((z) => {
     const g = new THREE.Group();
     g.position.z = z;
     const mat = new THREE.MeshBasicMaterial({ color: '#5d86ff', toneMapped: false, transparent: true });
     const ring = new THREE.Mesh(gateGeo, mat);
     const inner = new THREE.Mesh(new THREE.TorusGeometry(RH * 0.93, 0.025, 4, 6), mat);
     const board = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.9), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false }));
-    board.position.set((k % 2 ? 1 : -1) * 2.25, 0.5, -1);
-    board.rotation.y = (k % 2 ? -1 : 1) * 0.42;
+    board.position.set(1.55, 0.45, -1);
     const glow = makeGlow(3.4, '#3d6bff', '#7d9bff', 0.5, 0.3);
-    glow.position.copy(board.position).z -= 0.4;
     g.add(ring, inner, glow, board);
     g.userData = { mat, board, glow, on: 0, t: 9 };
     group.add(g);
     return g;
   });
 
-  const astro = makeAstronaut();
-  astro.group.scale.setScalar(1.05);
-  astro.group.rotation.y = Math.PI;
-  group.add(astro.group);
+  // Nova, the mascot, glides a few steps ahead and looks back at the visitor
+  const nova = makeNova();
+  group.add(nova.group);
   const lamp = new THREE.PointLight('#5d86ff', 30, 18, 1.4);
   bindNum(lamp, 'intensity', 30, 10);
   group.add(lamp);
@@ -153,17 +151,25 @@ export function createProcess(world) {
       m.needsUpdate = true;
     });
   }
+  const place = { novaX: -0.35, novaZ: 6.5 };
   function layout(ctx) {
-    gates.forEach((g, k) => {
+    // phones: the text panel covers the upper screen and already shows the
+    // stage, so the boards step aside and Nova stands centred below the panel
+    const phone = ctx.mode === 'mobile';
+    gates.forEach((g) => {
       const b = g.userData.board;
-      b.position.x = (k % 2 ? 1 : -1) * 2.25 * ctx.dir;
-      b.rotation.y = (k % 2 ? -1 : 1) * 0.42 * ctx.dir;
-      g.userData.glow.position.x = b.position.x;
+      b.visible = g.userData.glow.visible = !phone;
+      b.position.set(1.55 * ctx.dir, 0.45, -1);
+      b.rotation.y = -0.2 * ctx.dir;
+      g.userData.glow.position.set(b.position.x, b.position.y, -1.4);
     });
+    place.novaX = (phone ? 0.15 : -0.55) * ctx.dir;
+    place.novaZ = phone ? 8 : 7;
+    nova.group.scale.setScalar(phone ? 0.62 : 0.85);
   }
 
   const gold = new THREE.Color('#ffb545'), blue = new THREE.Color('#5d86ff');
-  let walk = 0, lastZ = null, lastActive = -1;
+  let lastActive = -1, lean = 0;
   function update(ctx, local) {
     const cz = world.camera.position.z;
     lu.uCam.value.copy(world.camera.position);
@@ -181,15 +187,13 @@ export function createProcess(world) {
       u.on = damp(u.on, k === active ? 1 : k < active ? 0.35 : 0, 5, ctx.dt);
       u.mat.color.copy(blue).lerp(gold, u.on);
       u.mat.opacity = 0.55 + u.on * 0.45;
-      u.board.material.opacity = 0.35 + u.on * 0.65;
+      u.board.material.opacity = 0.3 + u.on * 0.7;
       g.rotation.z = (1 - u.on) * 0.08 * Math.sin(ctx.time + k);
     });
-    // astronaut keeps a few steps ahead and walks with the scroll
-    const az = Math.max(T1 + 6, Math.min(T0 - 4, cz - 11));
-    if (lastZ != null) walk += Math.abs(az - lastZ) * 1.6;
-    lastZ = az;
-    astro.group.position.set((0.9 + Math.sin(walk * 0.05) * 0.2) * ctx.dir, FLOOR, az);
-    astro.pose(walk, smooth(0.0, 0.08, Math.abs(ctx.vel) + 0.02));
+    const nz = Math.max(T1 + 6, Math.min(T0 - 4, cz - place.novaZ));
+    lean = damp(lean, Math.min(0.35, Math.abs(ctx.vel) * 0.6), 4, ctx.dt);
+    nova.group.position.set(place.novaX, FLOOR, nz);
+    nova.update(ctx.time, { tilt: -lean, look: 0.35 * ctx.dir });
     lamp.position.set(0, 1.5, cz - 10);
   }
 
@@ -199,6 +203,7 @@ export function createProcess(world) {
     update,
     onLang,
     layout,
+    noPush: true, // the camera travels inside the tunnel: never pull it back on small screens
     keys: [
       { at: 0, pos: [0, 2.2, Z + 30], look: [0, 0, Z - 8], f: 0.2 },
       { at: 0.1, pos: [0, -0.5, K0], look: [0, -0.7, K0 - 30], f: 0.55 },

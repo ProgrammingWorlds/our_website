@@ -1,18 +1,21 @@
 import * as THREE from 'three';
 import { GLOBAL, NOISE, bindColor, bindNum, themeBlend, makePoints, rnd, col } from './lib.js';
+import { CHAPTERS } from '../story.js';
 
-// Sky palette per chapter: [zenith, horizon, nebula, warm] for dark and light.
+// Sky palette per scene: [zenith, horizon, nebula, warm] for dark and light.
 // The sky drifts between them as the camera travels, so every chapter has its
 // own atmosphere while the journey stays one continuous space.
-const PALETTE = [
-  { d: ['#020817', '#0b2163', '#2a4cd6', '#ff9a3c'], l: ['#cddcf7', '#f6f9ff', '#ffffff', '#ffd59a'] }, // hero
-  { d: ['#020a1e', '#0a2470', '#3d5bff', '#ffb545'], l: ['#d3e1fb', '#f7faff', '#ffffff', '#ffe0a8'] }, // services
-  { d: ['#05061e', '#1a1566', '#5b3dff', '#ffb545'], l: ['#d9dcfa', '#f8f8ff', '#ffffff', '#ffd9b8'] }, // about
-  { d: ['#010616', '#06235a', '#1f8bff', '#3d6bff'], l: ['#cfe3fb', '#f4f9ff', '#ffffff', '#cfe0ff'] }, // process
-  { d: ['#030b20', '#0a2366', '#315cff', '#ffb545'], l: ['#d3e0f7', '#f6f9ff', '#ffffff', '#ffe0a8'] }, // portfolio
-  { d: ['#06071a', '#2a1440', '#ff6a3d', '#ff9a3c'], l: ['#e3dcf3', '#fff7f0', '#ffffff', '#ffc89a'] }, // future
-  { d: ['#08081a', '#3a1c10', '#ffb545', '#ff8a3d'], l: ['#f0e2d0', '#fff8ee', '#ffffff', '#ffc070'] }, // contact
-].map((p) => ({ d: p.d.map(col), l: p.l.map(col) }));
+const SCENE_PALETTE = {
+  hero: { d: ['#020817', '#0b2163', '#2a4cd6', '#ff9a3c'], l: ['#cddcf7', '#f6f9ff', '#ffffff', '#ffd59a'] },
+  services: { d: ['#020a1e', '#0a2470', '#3d5bff', '#ffb545'], l: ['#d3e1fb', '#f7faff', '#ffffff', '#ffe0a8'] },
+  about: { d: ['#05061e', '#1a1566', '#5b3dff', '#ffb545'], l: ['#d9dcfa', '#f8f8ff', '#ffffff', '#ffd9b8'] },
+  process: { d: ['#010616', '#06235a', '#1f8bff', '#3d6bff'], l: ['#cfe3fb', '#f4f9ff', '#ffffff', '#cfe0ff'] },
+  portfolio: { d: ['#030b20', '#0a2366', '#315cff', '#ffb545'], l: ['#d3e0f7', '#f6f9ff', '#ffffff', '#ffe0a8'] },
+  future: { d: ['#06071a', '#2a1440', '#ff6a3d', '#ff9a3c'], l: ['#e3dcf3', '#fff7f0', '#ffffff', '#ffc89a'] },
+  contact: { d: ['#08081a', '#3a1c10', '#ffb545', '#ff8a3d'], l: ['#f0e2d0', '#fff8ee', '#ffffff', '#ffc070'] },
+};
+// in story order (a one-chapter story repeats its palette so there is always a pair to blend)
+const PALETTE = [...CHAPTERS, CHAPTERS[CHAPTERS.length - 1]].map((c) => SCENE_PALETTE[c.scene]).map((p) => ({ d: p.d.map(col), l: p.l.map(col) }));
 
 export function createSky(world) {
   const group = new THREE.Group();
@@ -31,12 +34,12 @@ export function createSky(world) {
           vec3 d = normalize(vDir);
           float h = d.y;
           vec3 col = mix(uHor, uZen, smoothstep(-0.25, 0.75, h));
-          float n = fbm(d*2.4 + vec3(0.0, 0.0, uTime*0.008));
-          float n2 = fbm(d*6.0 + 7.0);
+          float n = fbm3(d*2.4 + vec3(0.0, 0.0, uTime*0.008));
+          float n2 = fbm3(d*6.0 + 7.0);
           float neb = smoothstep(0.42, 0.86, n) * (0.45 + 0.65*n2);
           float band = pow(max(0.0, 1.0 - abs(h + 0.12)*2.6), 3.0);
           vec3 darkAdd = uNeb*neb*0.2 + uWarm*band*0.1*(0.6 + 0.5*n2);
-          float cl = smoothstep(0.45, 0.85, fbm(d*3.2 + vec3(uTime*0.004, 0.0, 2.0)));
+          float cl = smoothstep(0.45, 0.85, fbm3(d*3.2 + vec3(uTime*0.004, 0.0, 2.0)));
           vec3 lightAdd = vec3(1.0)*cl*0.18 + uWarm*band*0.08;
           col += mix(darkAdd, lightAdd, uTheme);
           gl_FragColor = vec4(col, 1.0);

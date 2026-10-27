@@ -5,7 +5,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GLOBAL, bindColor, bindNum, damp, clamp01 } from './lib.js';
+import { GLOBAL, bindColor, bindNum, damp, clamp01, smooth } from './lib.js';
 import { createSky } from './sky.js';
 import { createGates } from './gates.js';
 
@@ -99,15 +99,19 @@ export class World {
     this.vel = 0;
     this.boost = 0; // extra "warp" from theme / language switches
     this.avoid = null; // screen rect labels must stay out of (the text panel)
-    this.navigate = () => {};
+    this.select = () => {}; // (chapter id, step) — set by the page
 
+    // Start at a pixel ratio the GPU can hold at 60 fps: retina laptops render
+    // at 1.5× (sharp enough under bloom + grain), phones at 1.25×.
     const isMobile = matchMedia('(max-width: 760px), (pointer: coarse)').matches;
     const forced = opts.quality;
-    this.tier = forced === 'high' ? 0 : forced === 'low' ? 3 : isMobile ? 2 : devicePixelRatio > 2 ? 1 : 0;
+    this.tier = forced === 'high' ? 0 : forced === 'low' ? 3 : isMobile ? 2 : devicePixelRatio > 1.25 ? 1 : 0;
     this.adaptive = !forced;
     this.frameTimes = [];
 
-    const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+    // MSAA matters at 1×; at higher ratios 2 samples look the same and cost half
+    const samples = Math.min(devicePixelRatio || 1, TIERS[this.tier].pr) > 1.2 ? 2 : 4;
+    const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples }));
     composer.addPass(new RenderPass(scene, camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.5, 0.7);
     bindNum(this.bloom, 'strength', 0.62, 0.16);
@@ -233,7 +237,13 @@ export class World {
     const f = this.sample(this.u);
     const cam = this.camera, pos = this._pos, look = this._look;
     const m = ctx.mode;
-    if (m !== 'desktop') pos.sub(look).multiplyScalar(m === 'mobile' ? 1.5 + (1 - ctx.aspect) * 0.4 : 1.18).add(look);
+    // narrow screens pull the camera back so stations fit — except inside stations that opt out
+    if (m !== 'desktop') {
+      let hold = 0;
+      for (const s of this.stations) if (s.noPush) hold = Math.max(hold, smooth(-0.12, 0.1, this.u - s.index) * (1 - smooth(0.9, 1.12, this.u - s.index)));
+      const push = m === 'mobile' ? 1.5 + (1 - ctx.aspect) * 0.4 : 1.18;
+      pos.sub(look).multiplyScalar(push + (1 - push) * hold).add(look);
+    }
     const pt = this.pointer, k = this.reduced ? 0 : 1;
     pt.x = damp(pt.x, pt.tx * k, 2.6, dt);
     pt.y = damp(pt.y, pt.ty * k, 2.6, dt);
@@ -290,29 +300,32 @@ export class World {
         v.project(this.camera);
         if (v.z > 1) continue;
         const x = (v.x * 0.5 + 0.5) * W, y = (-v.y * 0.5 + 0.5) * H;
-        // labels fade out rather than sit on top of the text panel
-        const r = this.avoid;
-        const hit = r && x > r.left - 90 && x < r.right + 90 && y > r.top - 20 && y < r.bottom + 30;
+        // Labels fade out rather than sit on top of the text panel. The test uses
+        // the label's whole box (centred on x, hanging below y), so no part of
+        // it can ever cover — or take clicks from — the panel's controls.
+        const r = this.avoid, hw = W <= 760 ? 75 : 120;
+        const hit = r && x + hw > r.left - 16 && x - hw < r.right + 16 && y + 56 > r.top - 16 && y < r.bottom + 16;
         L.fade = damp(L.fade ?? 1, hit ? 0 : 1, 10, this.ctx.dt);
         if (!L.shown) {
           L.el.style.visibility = 'visible';
           L.shown = true;
         }
         L.el.style.opacity = (a * L.fade).toFixed(3);
-        L.el.style.pointerEvents = L.fade < 0.5 ? 'none' : '';
+        L.el.style.pointerEvents = hit || L.fade < 0.5 ? 'none' : '';
         L.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
       }
     }
   }
 
   monitor(dt) {
-    if (!this.adaptive || document.hidden || this.ctx.time < 4) return;
+    if (!this.adaptive || document.hidden || this.ctx.time < 3) return;
     const f = this.frameTimes;
     f.push(dt);
-    if (f.length < 120) return;
-    const avg = f.reduce((a, b) => a + b, 0) / f.length;
+    if (f.length < 90) return;
+    // the median ignores one-off hitches (tab switches, GC); step down below ~48 fps
+    const med = f.sort((a, b) => a - b)[f.length >> 1];
     f.length = 0;
-    if (avg > 1 / 40 && this.tier < TIERS.length - 1) {
+    if (med > 1 / 48 && this.tier < TIERS.length - 1) {
       this.tier++;
       this.applyQuality();
     }
