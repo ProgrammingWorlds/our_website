@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="dark" data-story="universal">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Our Future — Programming Worlds</title>
+    <meta name="description" content="The frontiers Programming Worlds is exploring next: AI & automation, business platforms, cybersecurity and cloud. Planned — not yet available." />
+    <link rel="canonical" href="https://programmingworlds.vercel.app/universal.html" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#030B20" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Programming Worlds" />
+    <meta property="og:url" content="https://programmingworlds.vercel.app/universal.html" />
+    <meta property="og:title" content="Our Future — Programming Worlds" />
+    <meta property="og:description" content="AI & automation, business platforms, cybersecurity and cloud — the frontiers we are exploring next." />
+    <meta property="og:image" content="https://programmingworlds.vercel.app/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ar_JO" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://programmingworlds.vercel.app/og-image.jpg" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script>
+      // Resolve theme + language before first paint (prevents flashes).
+      (function () {
+        var d = document.documentElement, theme, lang;
+        try { theme = localStorage.getItem('pw-theme'); lang = localStorage.getItem('pw-lang'); } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        if (lang !== 'ar' && lang !== 'en') lang = 'en';
+        d.setAttribute('data-theme', theme);
+        d.setAttribute('lang', lang);
+        d.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+        d.classList.add('js', 'is-loading');
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      })();
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Our Future — Programming Worlds",
+        "url": "https://programmingworlds.vercel.app/universal.html",
+        "inLanguage": ["en", "ar"],
+        "isPartOf": { "@id": "https://programmingworlds.vercel.app/#website" },
+        "about": { "@id": "https://programmingworlds.vercel.app/#organization" }
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+    <div class="loader" id="loader" aria-hidden="true">
+      <canvas class="loader__stars" id="loaderStars"></canvas>
+      <div class="loader__core">
+        <div class="loader__mark">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd48a" /><stop offset="0.5" stop-color="#ffb545" /><stop offset="1" stop-color="#5d86ff" /></linearGradient>
+            </defs>
+            <circle class="loader__track" cx="60" cy="60" r="56" />
+            <circle class="loader__ring" id="loaderRing" cx="60" cy="60" r="56" pathLength="100" />
+          </svg>
+          <img src="/assets/pw-logo.png" width="76" height="76" alt="" />
+        </div>
+        <p class="loader__hello" data-i18n="welcome.hello">Welcome to</p>
+        <p class="loader__title" data-i18n="welcome.title">Programming Worlds</p>
+        <p class="loader__sub" data-i18n="welcome.sub">Where ideas become digital worlds.</p>
+      </div>
+      <div class="loader__foot">
+        <span class="loader__count"><b id="loaderCount">000</b>%</span>
+        <span class="loader__slogan" data-i18n="brand.slogan">Digital worlds, crafted with precision.</span>
+      </div>
+    </div>
+
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div class="labels" id="labels" aria-hidden="true"></div>
+    <div class="cursor" id="cursor" aria-hidden="true"><i></i></div>
+
+    <header class="nav" id="nav">
+      <a class="brand" href="/" aria-label="Programming Worlds — Home">
+        <img src="/assets/pw-logo.png" width="40" height="40" alt="" />
+        <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="/#about" data-i18n="nav.about">About Us</a>
+        <a href="/#services" data-i18n="nav.services">Services</a>
+        <a href="/#process" data-i18n="nav.process">Our Process</a>
+        <a href="/#projects" data-i18n="nav.projects">Projects</a>
+        <a href="/#contact" data-i18n="nav.contact">Contact</a>
+      </nav>
+      <div class="nav__tools">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
+          <span class="theme-toggle__track" aria-hidden="true">
+            <span class="theme-toggle__icon theme-toggle__icon--moon"></span>
+            <span class="theme-toggle__icon theme-toggle__icon--sun"></span>
+            <span class="theme-toggle__knob"><span class="theme-toggle__knob-icon"></span></span>
+          </span>
+        </button>
+        <button class="lang-toggle" id="langToggle" type="button"><span class="lang-toggle__globe" aria-hidden="true"></span><span class="lang-toggle__code" id="langCode">عربي</span></button>
+        <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="mobileMenu"></button>
+      </div>
+    </header>
+
+    <div class="mobile-menu" id="mobileMenu" hidden>
+      <nav aria-label="Mobile">
+        <a href="/" data-i18n="nav.home">Home</a>
+        <a href="/#about" data-i18n="nav.about">About Us</a>
+        <a href="/#services" data-i18n="nav.services">Services</a>
+        <a href="/#process" data-i18n="nav.process">Our Process</a>
+        <a href="/#projects" data-i18n="nav.projects">Projects</a>
+        <a href="/#contact" data-i18n="nav.contact">Contact</a>
+      </nav>
+    </div>
+
+    <div class="hud" id="hud" aria-hidden="true">
+      <div class="hud__num"><span class="hud__roll" id="hudRoll"></span><span class="hud__total" id="hudTotal"></span></div>
+      <p class="hud__name" id="hudName"></p>
+      <div class="hud__bar"><i id="hudBar"></i></div>
+    </div>
+    <nav class="rail" id="rail" aria-label="Section navigation"></nav>
+    <button class="scroll-cue" id="scrollCue" type="button">
+      <span class="scroll-cue__mouse" aria-hidden="true"><i></i></span>
+      <span class="scroll-cue__label" data-i18n="a11y.scroll">Scroll to explore</span>
+      <span class="scroll-cue__chev" aria-hidden="true"><i></i><i></i></span>
+    </button>
+
+    <!-- "Our Future" — moved here from the homepage with its original content and behaviour. -->
+    <main id="main" class="chapters" tabindex="-1">
+      <section class="chapter chapter--future" id="future" aria-labelledby="h-future">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="future.eyebrow">Our Future</p>
+          <h1 class="heading" id="h-future" data-heading="future.heading">A World of New Opportunities.</h1>
+          <p class="desc" data-i18n="future.desc">We are exploring new frontiers in AI, business systems and cloud solutions to build a more intelligent and connected digital world.</p>
+          <div class="focus glass" id="futureFocus" aria-live="polite"></div>
+          <div class="steps" id="futureSteps" role="tablist"></div>
+          <div class="actions">
+            <a class="btn btn--ghost" href="/#contact"><span data-i18n="future.cta">Explore Future Solutions</span><i class="btn__arrow"></i></a>
+            <a class="btn btn--text" href="/"><i class="btn__arrow btn__arrow--back"></i><span data-i18n="future.back">Back to Home</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="track" id="track" aria-hidden="true"></div>
+
+    <footer class="footer">
+      <div class="footer__top">
+        <a class="brand" href="/" aria-label="Programming Worlds — Home">
+          <img src="/assets/pw-logo.png" width="36" height="36" alt="" loading="lazy" />
+          <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
+        </a>
+        <nav class="footer__links" aria-label="Footer">
+          <a href="/#about" data-i18n="nav.about">About Us</a>
+          <a href="/#services" data-i18n="nav.services">Services</a>
+          <a href="/#process" data-i18n="nav.process">Our Process</a>
+          <a href="/#projects" data-i18n="nav.projects">Projects</a>
+          <a href="/universal.html" data-i18n="nav.future" aria-current="page">Our Future</a>
+          <a href="/#contact" data-i18n="nav.contact">Contact</a>
+        </nav>
+        <div class="footer__social" id="social"></div>
+      </div>
+      <p class="footer__big" aria-hidden="true"><span data-i18n="footer.tagline">Code the Future</span></p>
+      <div class="footer__bottom">
+        <p class="footer__tag"><span class="footer__dash"></span><span data-i18n="brand.slogan">Digital worlds, crafted with precision.</span></p>
+        <p class="footer__legal">© <span id="year"></span> Programming Worlds. <span data-i18n="footer.rights">All rights reserved.</span></p>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

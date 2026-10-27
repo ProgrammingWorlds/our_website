@@ -47,9 +47,12 @@ export function createGates(world) {
 
   function update(ctx) {
     const cam = world.camera.position;
-    for (const g of gates) {
+    for (const [k, g] of gates.entries()) {
       const d = cam.distanceTo(g.position);
-      const a = smooth(46, 12, d) * smooth(0.6, 4, d) * strength.v;
+      // once the story has flown through a gate it stays gone, even where the
+      // camera is pulled back on small screens and would see it again
+      const passed = smooth(k + 1.02, k + 1.12, ctx.u);
+      const a = smooth(46, 12, d) * smooth(0.6, 4, d) * strength.v * (1 - passed);
       g.visible = a > 0.005;
       if (!g.visible) continue;
       const u = g.userData;

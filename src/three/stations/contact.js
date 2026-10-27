@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { makeAstronaut, makeOrbit, makeGlow, makeRocks, makePlanet, scatter, bindColor, bindNum, themeBlend, smooth, NOISE, GLOBAL } from '../lib.js';
+import { makeAstronaut, makeNova, makeOrbit, makeGlow, makeRocks, makePlanet, scatter, bindColor, bindNum, themeBlend, smooth, NOISE, GLOBAL } from '../lib.js';
 
-const Z = -505;
+const Z = -420;
 const RING = 3.8;
 const GROUND = -3.4;
 
@@ -87,7 +87,7 @@ export function createContact(world) {
         ${NOISE}
         void main(){
           vec2 q = vW.xz - vec2(0.0, ${Z.toFixed(1)});
-          float ripple = fbm(vec3(q.x*0.6, q.y*1.6 - uTime*0.6, uTime*0.1));
+          float ripple = fbm3(vec3(q.x*0.6, q.y*1.6 - uTime*0.6, uTime*0.1));
           float streak = exp(-q.x*q.x/(1.5 + max(q.y, 0.0)*0.25)) * smoothstep(40.0, 0.0, q.y) * step(-1.0, q.y);
           vec3 glow = vec3(1.0, 0.62, 0.25) * streak * (0.15 + ripple*0.6) * uOpen;
           float fade = smoothstep(60.0, 10.0, length(q));
@@ -106,11 +106,12 @@ export function createContact(world) {
   astro.group.position.set(-6.2, GROUND + 0.55, Z + 3);
   astro.group.rotation.y = 0.7;
   group.add(astro.group);
-  const astro2 = makeAstronaut();
-  astro2.group.position.set(6.8, GROUND + 0.35, Z - 1);
-  astro2.group.rotation.y = -0.9;
-  astro2.group.scale.setScalar(0.85);
-  group.add(astro2.group);
+  // Nova, the mascot, waits beside the portal and waves the visitor in
+  const nova = makeNova();
+  nova.group.position.set(4.7, GROUND + 0.5, Z + 1);
+  nova.group.rotation.y = -0.5;
+  nova.group.scale.setScalar(1.1);
+  group.add(nova.group);
   const rocks = makeRocks(
     [
       { p: [-6.2, GROUND + 0.1, Z + 3], s: [1.6, 0.6, 1.4] },
@@ -127,8 +128,8 @@ export function createContact(world) {
   function layout(ctx) {
     astro.group.position.x = -6.2 * ctx.dir;
     astro.group.rotation.y = 0.7 * ctx.dir;
-    astro2.group.position.x = 6.8 * ctx.dir;
-    astro2.group.rotation.y = -0.9 * ctx.dir;
+    nova.group.position.x = 4.7 * ctx.dir;
+    nova.group.rotation.y = -0.5 * ctx.dir;
     rocks.scale.x = ctx.dir;
     moon.position.x = -11 * ctx.dir;
   }
@@ -151,7 +152,7 @@ export function createContact(world) {
     astro.pose(0, 0);
     astro.armR.pivot.rotation.z = 2.4 + Math.sin(tm * 3) * 0.35;
     astro.armR.knee.rotation.x = -0.3;
-    astro2.group.position.y = GROUND + 0.35 + Math.sin(tm * 0.8) * 0.02;
+    nova.update(tm, { wave: 1, look: -0.2 * ctx.dir });
     moon.rotation.y = tm * 0.08;
   }
 

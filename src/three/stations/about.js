@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { makeLogo, makeGlow, logoMaterials, bindNum, smooth, rnd } from '../lib.js';
-import { CHAPTERS, stepF } from '../../story.js';
+import { chapter, stepF } from '../../story.js';
 
-const Z = -132;
+const Z = -64; // first stop after the hero
 const S = 2.4; // logo radius
-const CH = CHAPTERS[2];
+const CH = chapter('about');
 
 // Station 03 — "we turn ideas into digital reality": a storm of fragments
 // condenses into the PW mark as you scroll; four pillar lights join its orbit.

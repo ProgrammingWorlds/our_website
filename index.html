@@ -1,19 +1,32 @@
 <!doctype html>
-<html lang="en" dir="ltr" data-theme="dark">
+<html lang="en" dir="ltr" data-theme="dark" data-story="home">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Programming Worlds — Beyond Code. Beyond Limits.</title>
+    <title>Programming Worlds — Digital worlds, crafted with precision.</title>
     <meta name="description" content="Programming Worlds turns ideas into meaningful digital solutions through software engineering, creative design, and thoughtful technology." />
+    <link rel="canonical" href="https://programmingworlds.vercel.app/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#030B20" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Programming Worlds" />
-    <meta property="og:title" content="Programming Worlds — Beyond Code. Beyond Limits." />
-    <meta property="og:description" content="Digital Worlds. Built with Precision. Software engineering, creative design and thoughtful technology." />
-    <meta property="og:image" content="/assets/pw-logo.png" />
-    <meta name="twitter:card" content="summary" />
-    <link rel="icon" type="image/png" href="/assets/pw-logo.png" />
-    <link rel="apple-touch-icon" href="/assets/pw-logo.png" />
+    <meta property="og:url" content="https://programmingworlds.vercel.app/" />
+    <meta property="og:title" content="Programming Worlds — Digital worlds, crafted with precision." />
+    <meta property="og:description" content="Software engineering, creative design and thoughtful technology — websites, custom software, mobile apps, NFC experiences and training." />
+    <meta property="og:image" content="https://programmingworlds.vercel.app/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Programming Worlds — Digital worlds, crafted with precision." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ar_JO" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Programming Worlds — Digital worlds, crafted with precision." />
+    <meta name="twitter:description" content="Software engineering, creative design and thoughtful technology." />
+    <meta name="twitter:image" content="https://programmingworlds.vercel.app/og-image.jpg" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <script>
       // Resolve theme + language before first paint (prevents flashes).
       (function () {
@@ -31,7 +44,41 @@
       })();
     </script>
     <script type="application/ld+json">
-      { "@context": "https://schema.org", "@type": "Organization", "name": "Programming Worlds", "slogan": "Beyond Code. Beyond Limits.", "logo": "/assets/pw-logo.png" }
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://programmingworlds.vercel.app/#organization",
+            "name": "Programming Worlds",
+            "url": "https://programmingworlds.vercel.app/",
+            "logo": "https://programmingworlds.vercel.app/icons/icon-512.png",
+            "slogan": "Digital worlds, crafted with precision.",
+            "description": "A technology startup that turns ideas into digital solutions through software engineering, creative design and thoughtful technology.",
+            "email": "programmingworld2030@gmail.com",
+            "contactPoint": { "@type": "ContactPoint", "contactType": "sales", "email": "programmingworld2030@gmail.com", "availableLanguage": ["English", "Arabic"] },
+            "hasOfferCatalog": {
+              "@type": "OfferCatalog",
+              "name": "Services",
+              "itemListElement": [
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Web & Systems", "description": "Websites and web platforms." } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Software Solutions", "description": "Custom software that automates workflows." } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Mobile Apps", "description": "iOS and Android applications." } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "NFC Experiences", "description": "Smart NFC menus and tap-to-open interactions." } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Training & Courses", "description": "Practical technology courses for teams and individuals." } }
+              ]
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://programmingworlds.vercel.app/#website",
+            "url": "https://programmingworlds.vercel.app/",
+            "name": "Programming Worlds",
+            "inLanguage": ["en", "ar"],
+            "publisher": { "@id": "https://programmingworlds.vercel.app/#organization" }
+          }
+        ]
+      }
     </script>
   </head>
   <body>
@@ -56,27 +103,24 @@
       </div>
       <div class="loader__foot">
         <span class="loader__count"><b id="loaderCount">000</b>%</span>
-        <span class="loader__slogan" data-i18n="brand.slogan">Beyond Code. Beyond Limits.</span>
+        <span class="loader__slogan" data-i18n="brand.slogan">Digital worlds, crafted with precision.</span>
       </div>
     </div>
 
     <canvas id="gl" aria-hidden="true"></canvas>
-    <div class="grain" aria-hidden="true"></div>
     <div class="labels" id="labels" aria-hidden="true"></div>
     <div class="cursor" id="cursor" aria-hidden="true"><i></i></div>
 
     <header class="nav" id="nav">
-      <a class="brand" href="#home" aria-label="Programming Worlds">
+      <a class="brand" href="#home" aria-label="Programming Worlds — Home">
         <img src="/assets/pw-logo.png" width="40" height="40" alt="" />
         <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
       </a>
       <nav class="nav__links" aria-label="Primary">
-        <a href="#home" data-i18n="nav.home">Home</a>
-        <a href="#services" data-i18n="nav.services">Services</a>
         <a href="#about" data-i18n="nav.about">About Us</a>
+        <a href="#services" data-i18n="nav.services">Services</a>
         <a href="#process" data-i18n="nav.process">Our Process</a>
         <a href="#projects" data-i18n="nav.projects">Projects</a>
-        <a href="#future" data-i18n="nav.future">Our Future</a>
         <a href="#contact" data-i18n="nav.contact">Contact</a>
       </nav>
       <div class="nav__tools">
@@ -87,15 +131,7 @@
             <span class="theme-toggle__knob"><span class="theme-toggle__knob-icon"></span></span>
           </span>
         </button>
-        <div class="lang" id="lang">
-          <button class="lang__btn" id="langBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
-            <span class="lang__code">EN</span><span class="lang__chev" aria-hidden="true"></span>
-          </button>
-          <ul class="lang__menu" id="langMenu" role="listbox" hidden>
-            <li role="option" tabindex="-1" data-lang="en" lang="en">English</li>
-            <li role="option" tabindex="-1" data-lang="ar" lang="ar">العربية</li>
-          </ul>
-        </div>
+        <button class="lang-toggle" id="langToggle" type="button"><span class="lang-toggle__globe" aria-hidden="true"></span><span class="lang-toggle__code" id="langCode">عربي</span></button>
         <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="mobileMenu"></button>
       </div>
     </header>
@@ -103,30 +139,33 @@
     <div class="mobile-menu" id="mobileMenu" hidden>
       <nav aria-label="Mobile">
         <a href="#home" data-i18n="nav.home">Home</a>
-        <a href="#services" data-i18n="nav.services">Services</a>
         <a href="#about" data-i18n="nav.about">About Us</a>
+        <a href="#services" data-i18n="nav.services">Services</a>
         <a href="#process" data-i18n="nav.process">Our Process</a>
         <a href="#projects" data-i18n="nav.projects">Projects</a>
-        <a href="#future" data-i18n="nav.future">Our Future</a>
         <a href="#contact" data-i18n="nav.contact">Contact</a>
       </nav>
     </div>
 
     <!-- chapter HUD: number, name, story progress -->
     <div class="hud" id="hud" aria-hidden="true">
-      <div class="hud__num"><span class="hud__roll" id="hudRoll"></span><span class="hud__total">/ 07</span></div>
+      <div class="hud__num"><span class="hud__roll" id="hudRoll"></span><span class="hud__total" id="hudTotal"></span></div>
       <p class="hud__name" id="hudName"></p>
       <div class="hud__bar"><i id="hudBar"></i></div>
     </div>
     <nav class="rail" id="rail" aria-label="Section navigation"></nav>
-    <div class="scroll-cue" id="scrollCue" aria-hidden="true"><span data-i18n="a11y.scroll">Scroll</span><i></i></div>
+    <button class="scroll-cue" id="scrollCue" type="button">
+      <span class="scroll-cue__mouse" aria-hidden="true"><i></i></span>
+      <span class="scroll-cue__label" data-i18n="a11y.scroll">Scroll to explore</span>
+      <span class="scroll-cue__chev" aria-hidden="true"><i></i><i></i></span>
+    </button>
 
     <!-- Chapters are fixed panels over the 3D world; scroll drives which one is on stage. -->
     <main id="main" class="chapters" tabindex="-1">
-      <section class="chapter chapter--hero" id="home" data-chapter="0" aria-labelledby="h-hero">
+      <section class="chapter chapter--hero" id="home" aria-labelledby="h-hero">
         <div class="panel">
           <p class="eyebrow eyebrow--split"><span data-i18n="hero.eyebrow.0">Programming</span> <span class="gold" data-i18n="hero.eyebrow.1">Worlds</span></p>
-          <h1 class="heading heading--xl" id="h-hero" data-heading="hero.heading">Digital Worlds. Built with Precision.</h1>
+          <h1 class="heading heading--xl" id="h-hero" data-heading="hero.heading">Digital worlds, crafted with precision.</h1>
           <p class="desc" data-i18n="hero.desc">Turning ideas into meaningful digital solutions through software engineering, creative design, and thoughtful technology.</p>
           <div class="actions">
             <a class="btn btn--gold" href="#contact"><span data-i18n="hero.cta">Start Your Project</span><i class="btn__arrow"></i></a>
@@ -134,79 +173,120 @@
         </div>
       </section>
 
-      <section class="chapter chapter--services" id="services" data-chapter="1" aria-labelledby="h-services">
-        <div class="panel">
-          <p class="eyebrow" data-i18n="services.eyebrow">Our Services</p>
-          <h2 class="heading" id="h-services" data-heading="services.heading">Big Ideas. Strong Digital Foundations.</h2>
-          <p class="desc" data-i18n="services.desc">We deliver creative digital solutions to help you grow, automate and transform your business.</p>
-          <div class="focus glass" id="svcFocus" aria-live="polite"></div>
-          <div class="steps" id="svcSteps" role="tablist"></div>
-          <div class="actions">
-            <button class="btn btn--ghost" id="exploreServices" type="button"><span><span data-i18n="services.explore.0">Explore</span> <span data-i18n="services.explore.1">Services</span></span><i class="btn__arrow"></i></button>
-          </div>
-        </div>
-      </section>
-
-      <section class="chapter chapter--about" id="about" data-chapter="2" aria-labelledby="h-about">
+      <section class="chapter chapter--about" id="about" aria-labelledby="h-about">
         <div class="panel">
           <p class="eyebrow" data-i18n="about.eyebrow">Who We Are</p>
           <h2 class="heading" id="h-about" data-heading="about.heading">We Turn Ideas Into Digital Reality.</h2>
           <p class="desc" data-i18n="about.desc">Programming Worlds is a technology startup that transforms ideas into creative digital solutions and advanced software.</p>
           <ul class="pillars glass" id="pillars"></ul>
           <div class="actions">
-            <a class="btn btn--ghost btn--about" href="#process"><span data-i18n="about.cta">Discover Our Story</span><i class="btn__arrow"></i></a>
+            <a class="btn btn--ghost btn--solid-light" href="#services"><span data-i18n="about.cta">Explore Our Services</span><i class="btn__arrow"></i></a>
           </div>
         </div>
       </section>
 
-      <section class="chapter chapter--process" id="process" data-chapter="3" aria-labelledby="h-process">
+      <section class="chapter chapter--services" id="services" aria-labelledby="h-services">
+        <div class="panel">
+          <p class="eyebrow" data-i18n="services.eyebrow">Our Services</p>
+          <h2 class="heading" id="h-services" data-heading="services.heading">Big Ideas. Strong Digital Foundations.</h2>
+          <p class="desc" data-i18n="services.desc">We deliver creative digital solutions to help you grow, automate and transform your business.</p>
+          <div class="svc" id="svcSteps" role="tablist" data-i18n-label="services.list"></div>
+          <div class="focus glass" id="svcFocus" role="tabpanel" aria-live="polite"></div>
+          <div class="actions">
+            <a class="btn btn--ghost" href="#process"><span data-i18n="services.cta">Discover Our Story</span><i class="btn__arrow"></i></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter chapter--process" id="process" aria-labelledby="h-process">
         <div class="panel">
           <p class="eyebrow" data-i18n="process.eyebrow">Our Journey</p>
           <h2 class="heading" id="h-process" data-heading="process.heading">From Idea to Digital Product.</h2>
           <p class="desc" data-i18n="process.desc">We take you through a clear and professional journey from the initial idea to launch and growth.</p>
-          <div class="focus glass" id="stageFocus" aria-live="polite"></div>
-          <div class="steps" id="stageSteps" role="tablist"></div>
-          <div class="actions">
-            <button class="btn btn--ghost" id="howWeWork" type="button"><span data-i18n="process.cta">How We Work</span><i class="btn__arrow"></i></button>
+          <div class="stages" id="stageSteps" role="tablist" data-i18n-label="process.list"></div>
+          <div class="focus glass" id="stageFocus" role="tabpanel" aria-live="polite"></div>
+          <div class="actions actions--steps">
+            <button class="btn btn--icon" id="stagePrev" type="button" data-i18n-label="process.prev"><i class="btn__arrow btn__arrow--back"></i></button>
+            <button class="btn btn--ghost" id="howWeWork" type="button"><span id="howWeWorkLabel" data-i18n="process.cta">How We Work</span><i class="btn__arrow"></i></button>
           </div>
         </div>
       </section>
 
-      <section class="chapter chapter--portfolio" id="projects" data-chapter="4" aria-labelledby="h-portfolio">
-        <div class="panel">
-          <p class="eyebrow" data-i18n="portfolio.eyebrow">Our Work</p>
-          <h2 class="heading" id="h-portfolio" data-heading="portfolio.heading">Projects We're Proud Of.</h2>
-          <p class="desc" data-i18n="portfolio.desc">We deliver creative digital solutions in various fields, helping our clients achieve their goals.</p>
-          <div class="focus glass" id="workFocus" aria-live="polite"></div>
-          <div class="thumbs" id="thumbs" role="tablist"></div>
-          <p class="note" data-i18n="portfolio.note">Capability showcase — case studies are published once verified.</p>
-          <div class="actions">
-            <a class="btn btn--ghost" href="#contact"><span data-i18n="portfolio.cta">Explore Our Projects</span><i class="btn__arrow"></i></a>
+      <section class="chapter chapter--portfolio" id="projects" aria-labelledby="h-portfolio">
+        <div class="panel panel--wide">
+          <div class="work">
+            <div class="work__info">
+              <p class="eyebrow" data-i18n="portfolio.eyebrow">Our Work</p>
+              <h2 class="heading" id="h-portfolio" data-heading="portfolio.heading">Projects We're Proud Of.</h2>
+              <p class="desc" data-i18n="portfolio.desc">Real websites we designed and built — preview them on every screen.</p>
+              <div class="work__tabs" id="workTabs" role="tablist" data-i18n-label="portfolio.list"></div>
+              <div class="work__detail" id="workDetail" role="tabpanel" aria-live="polite"></div>
+            </div>
+            <div class="work__stage">
+              <div class="devices" id="deviceTabs" role="radiogroup" data-i18n-label="portfolio.deviceList"></div>
+              <div class="device-wrap" id="deviceWrap">
+                <figure class="device device--laptop" id="device">
+                  <div class="device__body">
+                    <div class="device__screen" id="deviceScreen"></div>
+                  </div>
+                  <div class="device__base" aria-hidden="true"></div>
+                </figure>
+              </div>
+              <div class="work__nav">
+                <button class="btn btn--icon" id="workPrev" type="button" data-i18n-label="portfolio.prev"><i class="btn__arrow btn__arrow--back"></i></button>
+                <span class="work__count" id="workCount" aria-hidden="true">01 / 02</span>
+                <button class="btn btn--icon" id="workNext" type="button" data-i18n-label="portfolio.next"><i class="btn__arrow"></i></button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="chapter chapter--future" id="future" data-chapter="5" aria-labelledby="h-future">
-        <div class="panel">
-          <p class="eyebrow" data-i18n="future.eyebrow">Our Future</p>
-          <h2 class="heading" id="h-future" data-heading="future.heading">A World of New Opportunities.</h2>
-          <p class="desc" data-i18n="future.desc">We are exploring new frontiers in AI, business systems and cloud solutions to build a more intelligent and connected digital world.</p>
-          <div class="focus glass" id="futureFocus" aria-live="polite"></div>
-          <div class="steps" id="futureSteps" role="tablist"></div>
-          <div class="actions">
-            <a class="btn btn--ghost" href="#contact"><span data-i18n="future.cta">Explore Future Solutions</span><i class="btn__arrow"></i></a>
-          </div>
-        </div>
-      </section>
-
-      <section class="chapter chapter--contact" id="contact" data-chapter="6" aria-labelledby="h-contact">
-        <div class="panel">
+      <section class="chapter chapter--contact" id="contact" aria-labelledby="h-contact">
+        <div class="panel panel--form">
           <p class="eyebrow" data-i18n="contact.eyebrow">Let's Build Together</p>
           <h2 class="heading" id="h-contact" data-heading="contact.heading">Have an Idea? Let's Build It.</h2>
-          <p class="desc" data-i18n="contact.desc">Whether you are a business, a startup or an individual, we are ready to turn your ideas into real digital solutions.</p>
-          <div class="actions">
-            <a class="btn btn--gold" id="contactCta" href="#contact"><span data-i18n="contact.cta">Contact Us Now</span><i class="btn__arrow"></i></a>
-          </div>
+          <p class="desc" data-i18n="contact.desc">Whether you are a business, a startup or an individual, tell us about your idea and we will turn it into a real digital solution.</p>
+          <form class="cform glass" id="contactForm" action="/api/contact" method="post" novalidate>
+            <div class="cform__grid">
+              <div class="field">
+                <label for="cf-name"><span data-i18n="contact.form.name">Full name</span> <span class="field__req" aria-hidden="true">*</span></label>
+                <input id="cf-name" name="name" type="text" autocomplete="name" required maxlength="100" aria-describedby="cf-name-err" />
+                <p class="field__err" id="cf-name-err"></p>
+              </div>
+              <div class="field">
+                <label for="cf-email"><span data-i18n="contact.form.email">Email address</span> <span class="field__req" aria-hidden="true">*</span></label>
+                <input id="cf-email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="160" dir="ltr" aria-describedby="cf-email-err" />
+                <p class="field__err" id="cf-email-err"></p>
+              </div>
+              <div class="field">
+                <label for="cf-company"><span data-i18n="contact.form.company">Company</span> <span class="field__opt">(<span data-i18n="contact.form.optional">optional</span>)</span></label>
+                <input id="cf-company" name="company" type="text" autocomplete="organization" maxlength="120" />
+              </div>
+              <div class="field">
+                <label for="cf-service"><span data-i18n="contact.form.service">Service of interest</span> <span class="field__req" aria-hidden="true">*</span></label>
+                <select id="cf-service" name="service" required aria-describedby="cf-service-err"></select>
+                <p class="field__err" id="cf-service-err"></p>
+              </div>
+              <div class="field field--full">
+                <label for="cf-scope"><span data-i18n="contact.form.scope">Project scope</span> <span class="field__opt">(<span data-i18n="contact.form.optional">optional</span>)</span></label>
+                <select id="cf-scope" name="scope"></select>
+              </div>
+              <div class="field field--full">
+                <label for="cf-message"><span data-i18n="contact.form.message">Message</span> <span class="field__req" aria-hidden="true">*</span></label>
+                <textarea id="cf-message" name="message" rows="3" required minlength="10" maxlength="3000" aria-describedby="cf-message-err"></textarea>
+                <p class="field__err" id="cf-message-err"></p>
+              </div>
+              <div class="hp" aria-hidden="true">
+                <label for="cf-website">Website</label>
+                <input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+              </div>
+            </div>
+            <div class="cform__foot">
+              <button class="btn btn--gold" id="cfSubmit" type="submit"><span id="cfSubmitLabel" data-i18n="contact.form.send">Send Inquiry</span><i class="btn__arrow"></i></button>
+              <p class="cform__status" id="cfStatus" role="status" aria-live="polite"></p>
+            </div>
+          </form>
         </div>
       </section>
     </main>
@@ -216,22 +296,23 @@
 
     <footer class="footer">
       <div class="footer__top">
-        <a class="brand" href="#home" aria-label="Programming Worlds">
+        <a class="brand" href="#home" aria-label="Programming Worlds — Home">
           <img src="/assets/pw-logo.png" width="36" height="36" alt="" loading="lazy" />
           <span class="brand__text"><span>Programming</span><span>Worlds</span></span>
         </a>
         <nav class="footer__links" aria-label="Footer">
-          <a href="#home" data-i18n="nav.home">Home</a>
           <a href="#about" data-i18n="nav.about">About Us</a>
           <a href="#services" data-i18n="nav.services">Services</a>
+          <a href="#process" data-i18n="nav.process">Our Process</a>
           <a href="#projects" data-i18n="nav.projects">Projects</a>
+          <a href="/universal.html" data-i18n="nav.future">Our Future</a>
           <a href="#contact" data-i18n="nav.contact">Contact</a>
         </nav>
         <div class="footer__social" id="social"></div>
       </div>
       <p class="footer__big" aria-hidden="true"><span data-i18n="footer.tagline">Code the Future</span></p>
       <div class="footer__bottom">
-        <p class="footer__tag"><span class="footer__dash"></span><span data-i18n="brand.slogan">Beyond Code. Beyond Limits.</span></p>
+        <p class="footer__tag"><span class="footer__dash"></span><span data-i18n="brand.slogan">Digital worlds, crafted with precision.</span></p>
         <p class="footer__legal">© <span id="year"></span> Programming Worlds. <span data-i18n="footer.rights">All rights reserved.</span></p>
       </div>
     </footer>

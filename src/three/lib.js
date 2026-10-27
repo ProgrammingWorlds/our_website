@@ -63,6 +63,8 @@ float vnoise(vec3 p){
   return mix(mix(mix(n000,n100,f.x), mix(n010,n110,f.x), f.y), mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
 }
 float fbm(vec3 p){ float a = 0.5, s = 0.0; for(int i=0;i<5;i++){ s += a*vnoise(p); p = p*2.03 + vec3(1.7,9.2,3.1); a *= 0.5; } return s; }
+// 3 octaves: for full-screen surfaces (sky, ground) where 5 would cost too much per pixel
+float fbm3(vec3 p){ float a = 0.5, s = 0.0; for(int i=0;i<3;i++){ s += a*vnoise(p); p = p*2.03 + vec3(1.7,9.2,3.1); a *= 0.5; } return s * 1.14; }
 `;
 
 /* ======================================================================
@@ -473,6 +475,118 @@ export function makeAstronaut() {
     armR.knee.rotation.x = -0.25 * amount;
   }
   return { group: g, pose, armL, armR };
+}
+
+/* ======================================================================
+   Nova — the Programming Worlds mascot: a friendly hovering assistant
+   robot (~1.7 units tall, faces +Z). Rounded primitives that share a few
+   materials; the eyes, smile and antenna glow through the bloom pass.
+   ====================================================================== */
+let novaMats;
+function novaMaterials() {
+  if (novaMats) return novaMats;
+  const shell = new THREE.MeshPhysicalMaterial({ roughness: 0.3, metalness: 0.12, clearcoat: 0.8, clearcoatRoughness: 0.18 });
+  bindColor(shell, 'color', '#d9e2ff', '#ffffff');
+  const trim = new THREE.MeshPhysicalMaterial({ color: '#3b41e3', roughness: 0.32, metalness: 0.2, clearcoat: 0.6 });
+  bindColor(trim, 'emissive', '#1b22a8', '#0d1490');
+  bindNum(trim, 'emissiveIntensity', 0.35, 0.12);
+  const visor = new THREE.MeshPhysicalMaterial({ color: '#060a22', roughness: 0.1, metalness: 0.5, clearcoat: 1 });
+  const glow = new THREE.MeshBasicMaterial({ toneMapped: false });
+  bindColor(glow, 'color', '#a8e2ff', '#5fc4ff');
+  const gold = new THREE.MeshStandardMaterial({ color: '#ffb545', roughness: 0.35, metalness: 0.4, emissive: '#ff9a2e', emissiveIntensity: 0.6 });
+  // chest badge: the </> glyph on brand blue
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#3b41e3';
+  g.beginPath();
+  g.arc(64, 64, 64, 0, Math.PI * 2);
+  g.fill();
+  g.translate(24, 24);
+  g.scale(80 / 24, 80 / 24);
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = 2.2;
+  g.lineCap = g.lineJoin = 'round';
+  g.stroke(new Path2D('M8 8l-4 4 4 4 M16 8l4 4-4 4 M13.5 6l-3 12'));
+  const badge = new THREE.MeshBasicMaterial({ map: canvasTexture(c), toneMapped: false });
+  const shadow = new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, depthWrite: false });
+  bindNum(shadow, 'opacity', 0.35, 0.12);
+  novaMats = { shell, trim, visor, glow, gold, badge, shadow };
+  return novaMats;
+}
+
+export function makeNova() {
+  const M = novaMaterials();
+  const group = new THREE.Group(); // floor level
+  const body = new THREE.Group(); // hovers above it
+  group.add(body);
+  const add = (geo, mat, parent, x = 0, y = 0, z = 0) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    parent.add(m);
+    return m;
+  };
+  // torso: an egg with a blue belt, a chest badge and a hover jet below
+  add(new THREE.SphereGeometry(0.36, 32, 24), M.shell, body, 0, 0.62, 0).scale.set(1, 1.08, 0.9);
+  add(new THREE.TorusGeometry(0.335, 0.035, 10, 48), M.trim, body, 0, 0.5, 0).rotation.x = Math.PI / 2;
+  add(new THREE.CircleGeometry(0.1, 32), M.badge, body, 0, 0.74, 0.322).rotation.x = -0.18;
+  const jet = add(new THREE.TorusGeometry(0.15, 0.03, 8, 32), M.gold, body, 0, 0.25, 0);
+  jet.rotation.x = Math.PI / 2;
+  const flame = makeGlow(1.3, '#ffb545', '#ff9a2e', 0.6, 0.35);
+  flame.position.y = 0.14;
+  body.add(flame);
+  add(new THREE.CylinderGeometry(0.07, 0.09, 0.12, 16), M.trim, body, 0, 1.0, 0);
+  // head: rounded shell, dark visor with glowing eyes and smile, headphone ears, antenna
+  const head = new THREE.Group();
+  head.position.set(0, 1.32, 0);
+  body.add(head);
+  add(new RoundedBoxGeometry(0.8, 0.6, 0.62, 5, 0.22), M.shell, head);
+  add(new RoundedBoxGeometry(0.64, 0.42, 0.1, 4, 0.12), M.visor, head, 0, -0.01, 0.28);
+  const eyeGeo = new THREE.CapsuleGeometry(0.045, 0.08, 4, 12);
+  const eyes = [-0.13, 0.13].map((x) => add(eyeGeo, M.glow, head, x, 0.035, 0.335));
+  const smile = add(new THREE.TorusGeometry(0.075, 0.014, 6, 24, Math.PI), M.glow, head, 0, -0.06, 0.335);
+  smile.rotation.z = Math.PI;
+  for (const s of [-1, 1]) {
+    add(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 28), M.trim, head, s * 0.41, 0, 0).rotation.z = Math.PI / 2;
+    add(new THREE.TorusGeometry(0.115, 0.02, 8, 32), M.gold, head, s * 0.455, 0, 0).rotation.y = Math.PI / 2;
+  }
+  add(new THREE.CylinderGeometry(0.014, 0.014, 0.22, 8), M.trim, head, 0, 0.4, 0);
+  const tip = add(new THREE.SphereGeometry(0.055, 16, 12), M.gold, head, 0, 0.54, 0);
+  const tipGlow = makeGlow(0.6, '#ffb545', '#ff9a2e', 0.7, 0.4);
+  tipGlow.position.y = 0.54;
+  head.add(tipGlow);
+  // arms on shoulder pivots
+  const arm = (s) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(s * 0.37, 0.8, 0);
+    body.add(pivot);
+    add(new THREE.CapsuleGeometry(0.06, 0.2, 4, 12), M.shell, pivot, 0, -0.15, 0);
+    add(new THREE.SphereGeometry(0.075, 16, 12), M.trim, pivot, 0, -0.32, 0);
+    pivot.rotation.z = s * 0.25;
+    return pivot;
+  };
+  const armL = arm(-1), armR = arm(1);
+  const shadow = add(new THREE.CircleGeometry(0.42, 32), M.shadow, group, 0, 0.01, 0);
+  shadow.rotation.x = -Math.PI / 2;
+
+  /** tilt: lean (radians), wave: 0..1 raises the right arm, look: head turn (radians) */
+  function update(t, { tilt = 0, wave = 0, look = 0 } = {}) {
+    const bob = Math.sin(t * 2.1) * 0.05;
+    body.position.y = 0.3 + bob;
+    body.rotation.x = tilt;
+    head.rotation.y = look + Math.sin(t * 0.7) * 0.14;
+    head.rotation.z = Math.sin(t * 0.9) * 0.05;
+    const blink = t % 3.7 < 0.13 ? 0.15 : 1;
+    for (const e of eyes) e.scale.y = blink;
+    tip.scale.setScalar(1 + Math.sin(t * 4) * 0.15);
+    jet.scale.setScalar(1 + Math.sin(t * 9) * 0.06);
+    armL.rotation.x = Math.sin(t * 1.6) * 0.18;
+    armR.rotation.x = -Math.sin(t * 1.6) * 0.18 * (1 - wave);
+    armR.rotation.z = 0.25 + wave * (2.25 + Math.sin(t * 6) * 0.3);
+    shadow.scale.setScalar(1 - bob * 1.6);
+  }
+  update(0);
+  return { group, update };
 }
 
 /* ======================================================================
