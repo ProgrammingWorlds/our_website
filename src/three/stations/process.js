@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeNova, makeGlow, bindColor, bindNum, themeBlend, canvasTexture, damp, GLOBAL } from '../lib.js';
+import { FOV_BASE } from '../world.js';
 import { drawIcon } from '../../icons.js';
 import { t } from '../../i18n.js';
 import { chapter, stepAt, stepF } from '../../story.js';
@@ -10,10 +11,15 @@ const FLOOR = -RH * Math.sin(Math.PI / 3);
 const T0 = Z + 12, T1 = Z - 100; // tunnel extent
 const CH = chapter('process');
 const ICONS = ['bulb', 'strategy', 'design', 'dev', 'test', 'rocket'];
-// camera keys (see below) travel linearly from K0 to K1 between local 0.1 and 0.9
+// the camera travels linearly from K0 to K1 between local 0.1 and 0.9, with a
+// key on every stage: a spline through only the two ends does not move linearly,
+// and stages would land too close to (or past) their board
 const K0 = Z + 6, K1 = Z - 84;
 const camZ = (local) => K0 + ((local - 0.1) / 0.8) * (K1 - K0);
 const GATES = ICONS.map((_, k) => camZ(stepAt(CH, k)) - 7.5);
+const BOARD_W = 3.2;
+const BOARD_D = 8.5; // camera → board distance when a stage is reached (gate 7.5 ahead, board 1 behind it)
+const FRAME_F = 0.55; // this station's framing factor (camera keys below)
 
 function hex(z, r = RH) {
   const pts = [];
@@ -122,7 +128,7 @@ export function createProcess(world) {
     const mat = new THREE.MeshBasicMaterial({ color: '#5d86ff', toneMapped: false, transparent: true });
     const ring = new THREE.Mesh(gateGeo, mat);
     const inner = new THREE.Mesh(new THREE.TorusGeometry(RH * 0.93, 0.025, 4, 6), mat);
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.9), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false }));
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, 1.9), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false }));
     board.position.set(1.55, 0.45, -1);
     const glow = makeGlow(3.4, '#3d6bff', '#7d9bff', 0.5, 0.3);
     g.add(ring, inner, glow, board);
@@ -152,14 +158,37 @@ export function createProcess(world) {
     });
   }
   const place = { novaX: -0.35, novaZ: 6.5 };
+  /**
+   * Size and place the boards so the active one fits, whole, between the text
+   * panel and the far screen edge once the camera has arrived at its stage
+   * (it is then BOARD_D ahead). Uses the visible width at that depth and the
+   * camera's sideways framing shift, so it holds for every window shape.
+   */
+  function fitBoard(ctx) {
+    const hw = BOARD_D * Math.tan(THREE.MathUtils.degToRad(FOV_BASE / 2)) * ctx.aspect;
+    const { sx } = world.frameShift(FRAME_F);
+    const toX = (ndc) => (ndc - 2 * sx) * hw;
+    const panel = document.querySelector('#process .panel');
+    const edge = panel ? (ctx.dir > 0 ? panel.offsetLeft + panel.offsetWidth : panel.offsetLeft) / ctx.width : 0.5;
+    // keep clear of the section rail along the far edge where it is shown (wider than 1024px)
+    const far = ctx.width > 1024 ? 0.86 : 0.94;
+    const inner = toX(edge * 2 - 1) + 0.3 * ctx.dir, outer = toX(far * ctx.dir) - 0.3 * ctx.dir;
+    const room = Math.abs(outer - inner);
+    const scale = Math.max(0.45, Math.min(1, room / (BOARD_W + 0.1)));
+    const half = (BOARD_W / 2) * scale;
+    const lo = Math.min(inner, outer) + half, hi = Math.max(inner, outer) - half;
+    return { scale, x: lo > hi ? (inner + outer) / 2 : Math.min(hi, Math.max(lo, 1.55 * ctx.dir)) };
+  }
   function layout(ctx) {
     // phones: the text panel covers the upper screen and already shows the
     // stage, so the boards step aside and Nova stands centred below the panel
     const phone = ctx.mode === 'mobile';
+    const fit = phone ? { scale: 1, x: 1.55 * ctx.dir } : fitBoard(ctx);
     gates.forEach((g) => {
       const b = g.userData.board;
       b.visible = g.userData.glow.visible = !phone;
-      b.position.set(1.55 * ctx.dir, 0.45, -1);
+      b.position.set(fit.x, 0.45, -1);
+      b.scale.setScalar(fit.scale);
       b.rotation.y = -0.2 * ctx.dir;
       g.userData.glow.position.set(b.position.x, b.position.y, -1.4);
     });
@@ -204,10 +233,10 @@ export function createProcess(world) {
     onLang,
     layout,
     noPush: true, // the camera travels inside the tunnel: never pull it back on small screens
+    boards: gates.map((g) => g.userData.board),
     keys: [
       { at: 0, pos: [0, 2.2, Z + 30], look: [0, 0, Z - 8], f: 0.2 },
-      { at: 0.1, pos: [0, -0.5, K0], look: [0, -0.7, K0 - 30], f: 0.55 },
-      { at: 0.9, pos: [0, -0.5, K1], look: [0, -0.7, K1 - 30], f: 0.55 },
+      ...[0.1, ...ICONS.map((_, k) => stepAt(CH, k)), 0.9].map((at) => ({ at, pos: [0, -0.5, camZ(at)], look: [0, -0.7, camZ(at) - 30], f: FRAME_F })),
     ],
   };
 }

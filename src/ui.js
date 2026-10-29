@@ -75,28 +75,12 @@ export function applyLang(lang) {
 }
 
 /* ------------------------------------------------------------- theme */
+// The button is named by what it does ("Switch to light mode"); the icon shows the current theme.
 function updateThemeLabel(lang = root.lang) {
   const btn = document.querySelector('#themeToggle');
-  const light = root.dataset.theme === 'light';
-  btn.setAttribute('aria-label', t(lang, light ? 'a11y.themeToDark' : 'a11y.themeToLight'));
-  btn.setAttribute('aria-pressed', String(light));
-}
-// Gold shockwave rings that burst from the toggle while the new theme spreads.
-function shockwave(x, y, r) {
-  const wrap = document.createElement('div');
-  wrap.className = 'shock';
-  wrap.style.setProperty('--x', `${x}px`);
-  wrap.style.setProperty('--y', `${y}px`);
-  wrap.innerHTML = '<i></i><i></i><i></i><b></b>';
-  document.body.appendChild(wrap);
-  const [a, b, c] = wrap.querySelectorAll('i');
-  const flash = wrap.querySelector('b');
-  const s = r / 50; // rings start 100px wide
-  const tl = gsap.timeline({ onComplete: () => wrap.remove() });
-  tl.fromTo(a, { scale: 0.05, opacity: 1 }, { scale: s, opacity: 0, duration: 1.3, ease: 'expo.out' }, 0)
-    .fromTo(b, { scale: 0.05, opacity: 0.8 }, { scale: s * 0.8, opacity: 0, duration: 1.5, ease: 'expo.out' }, 0.08)
-    .fromTo(c, { scale: 0.05, opacity: 0.6 }, { scale: s * 0.55, opacity: 0, duration: 1.7, ease: 'expo.out' }, 0.16)
-    .fromTo(flash, { opacity: 0.55, scale: 0.2 }, { opacity: 0, scale: 3, duration: 0.9, ease: 'power2.out' }, 0);
+  const label = t(lang, root.dataset.theme === 'light' ? 'a11y.themeToDark' : 'a11y.themeToLight');
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
 }
 
 export function setupTheme(onMix, { reduced, onKick = () => {} }) {
@@ -111,12 +95,9 @@ export function setupTheme(onMix, { reduced, onKick = () => {} }) {
       updateThemeLabel();
     };
     if (persist) store.set('pw-theme', theme);
-    const [ox, oy] = origin || [innerWidth - 120, 40];
-    if (!reduced && origin) {
-      shockwave(ox, oy, Math.hypot(Math.max(ox, innerWidth - ox), Math.max(oy, innerHeight - oy)));
-      onKick(0.9);
-      gsap.fromTo('.theme-toggle__knob', { rotate: 0 }, { rotate: 360, duration: 1, ease: 'expo.out', clearProps: 'rotate' });
-    }
+    if (!reduced && origin) onKick(0.25); // a breath of warp in the 3D scene, nothing more
+    // One coherent change: the new theme opens as a circle from the button, the
+    // page and the 3D scene together (the scene's new colours are in that snapshot).
     if (document.startViewTransition && !reduced) {
       const vt = document.startViewTransition(() => {
         commit();
@@ -126,11 +107,16 @@ export function setupTheme(onMix, { reduced, onKick = () => {} }) {
       const [x, y] = origin || [innerWidth - 120, 40];
       const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
       vt.ready.then(() => {
-        root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] }, { duration: 900, easing: 'cubic-bezier(.16,1,.3,1)', pseudoElement: '::view-transition-new(root)' });
-      });
+        root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] }, { duration: 680, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' });
+      }, () => {});
     } else {
+      // no view transitions: colours cross-fade while the scene blends over the same time
+      if (!reduced) {
+        root.classList.add('theme-fade');
+        setTimeout(() => root.classList.remove('theme-fade'), 520);
+      }
       commit();
-      gsap.to(state, { mix: target, duration: reduced ? 0 : 1.1, ease: 'power2.inOut', onUpdate: () => onMix(state.mix) });
+      gsap.to(state, { mix: target, duration: reduced ? 0 : 0.5, ease: 'power2.inOut', onUpdate: () => onMix(state.mix) });
     }
   };
   btn.addEventListener('click', () => {
@@ -262,7 +248,7 @@ export function setupCursor({ reduced }) {
 export function setupTilt({ reduced }) {
   if (reduced || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
   document.addEventListener('pointermove', (e) => {
-    const card = e.target.closest?.('.focus, .pillars');
+    const card = e.target.closest?.('.focus');
     document.querySelectorAll('.is-tilting').forEach((c) => c !== card && c.classList.remove('is-tilting'));
     if (!card) return;
     const r = card.getBoundingClientRect();

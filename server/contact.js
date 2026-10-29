@@ -10,7 +10,7 @@
 
 export const DEFAULT_TO = 'programmingworld2030@gmail.com';
 export const DEFAULT_FROM = 'Programming Worlds <onboarding@resend.dev>';
-export const LIMITS = { name: 100, email: 160, company: 120, message: 3000, body: 16000 };
+export const LIMITS = { name: 100, email: 160, subject: 150, company: 120, message: 3000, body: 16000 };
 export const SERVICES = { web: 'Web & Systems', software: 'Software Solutions', mobile: 'Mobile Apps', nfc: 'NFC Experiences', training: 'Training & Courses', other: 'Something else' };
 export const SCOPES = { unsure: 'Not sure yet', small: 'Small — a page, an update or a fix', medium: 'Medium — a full website or app', large: 'Large — a custom platform or system' };
 const EMAIL_RE = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:"]{2,}$/;
@@ -33,17 +33,21 @@ export function validate(input) {
   const data = {
     name: line(body.name, LIMITS.name),
     email: line(body.email, LIMITS.email).toLowerCase(),
+    // single line: newlines and control characters are removed, so it can never inject a mail header
+    subject: line(body.subject, LIMITS.subject),
+    // optional fields older versions of the form sent; still accepted
     company: line(body.company, LIMITS.company),
     service: String(body.service ?? ''),
-    scope: String(body.scope ?? 'unsure'),
+    scope: body.scope == null || body.scope === '' ? '' : String(body.scope),
     message: text(body.message, LIMITS.message + 1),
     lang: body.lang === 'ar' ? 'ar' : 'en',
   };
   const errors = {};
   if (!data.name) errors.name = 'required';
   if (!EMAIL_RE.test(data.email)) errors.email = 'email';
+  if (!data.subject) errors.subject = 'required';
   if (!(data.service in SERVICES)) errors.service = 'required';
-  if (!(data.scope in SCOPES)) data.scope = 'unsure';
+  if (data.scope && !(data.scope in SCOPES)) data.scope = 'unsure';
   if (data.message.length < 10) errors.message = 'short';
   else if (data.message.length > LIMITS.message) errors.message = 'long';
   // spam checks: the hidden honeypot field must stay empty, and the form can't be filled instantly
@@ -71,12 +75,13 @@ export function composeEmail(d) {
   const rows = [
     ['Name', d.name],
     ['Email', d.email],
-    ['Company', d.company || '—'],
+    ['Subject', d.subject],
+    ...(d.company ? [['Company', d.company]] : []),
     ['Service', SERVICES[d.service]],
-    ['Scope', SCOPES[d.scope]],
+    ...(d.scope ? [['Scope', SCOPES[d.scope]]] : []),
     ['Language', d.lang === 'ar' ? 'Arabic' : 'English'],
   ];
-  const subject = `New inquiry — ${SERVICES[d.service]} — ${d.name}`.slice(0, 180);
+  const subject = `${d.subject} — ${d.name} (website inquiry)`.slice(0, 200);
   const textBody = `${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nMessage:\n${d.message}\n`;
   const html =
     `<div style="font-family:system-ui,sans-serif;font-size:15px;color:#0a1544">` +

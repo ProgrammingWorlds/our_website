@@ -5,7 +5,7 @@
 const STORIES = {
   home: [
     { id: 'home', scene: 'hero', len: 1.4, win: [-1, -1, 0.34, 0.5] },
-    { id: 'about', scene: 'about', len: 2.2, steps: 4, range: [0.3, 0.78] },
+    { id: 'about', scene: 'about', len: 3.6, steps: 7, range: [0.16, 0.86] },
     { id: 'services', scene: 'services', len: 2.8, steps: 5, range: [0.16, 0.84] },
     { id: 'process', scene: 'process', len: 3.2, steps: 6, range: [0.18, 0.86] },
     { id: 'projects', scene: 'portfolio', len: 2, steps: 2, range: [0.28, 0.72] },

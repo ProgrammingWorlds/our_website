@@ -7,7 +7,7 @@ const S = 2.4; // logo radius
 const CH = chapter('about');
 
 // Station 03 — "we turn ideas into digital reality": a storm of fragments
-// condenses into the PW mark as you scroll; four pillar lights join its orbit.
+// condenses into the PW mark as you scroll; a light joins its orbit for each About section.
 export function createAbout(world) {
   const group = new THREE.Group();
   group.position.z = Z;
@@ -59,8 +59,8 @@ export function createAbout(world) {
     return v.multiplyScalar(h).add(c);
   });
 
-  // pillar lights
-  const pillars = [0, 1, 2, 3].map((k) => {
+  // one light per About section joins the orbit as its section is reached
+  const pillars = Array.from({ length: CH.steps }, (_, k) => {
     const g = new THREE.Group();
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 24, 16), new THREE.MeshBasicMaterial({ color: k % 2 ? '#7d9bff' : '#ffb545', toneMapped: false }));
     g.add(orb, makeGlow(1.6, k % 2 ? '#5d86ff' : '#ffb545', k % 2 ? '#315cff' : '#ffb545', 0.8, 0.6));
@@ -100,7 +100,7 @@ export function createAbout(world) {
     const f = stepF(CH, local);
     pillars.forEach((g, k) => {
       const on = smooth(k - 0.6, k + 0.1, f) * smooth(0.18, 0.3, local);
-      const ang = t * 0.35 + (k / 4) * Math.PI * 2;
+      const ang = t * 0.35 + (k / pillars.length) * Math.PI * 2;
       g.position.set(Math.cos(ang) * 4.2, Math.sin(ang * 2) * 0.6 + 0.3, Math.sin(ang) * 4.2);
       g.scale.setScalar(on);
     });

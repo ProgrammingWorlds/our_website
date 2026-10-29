@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { GLOBAL, bindColor, bindNum, damp, clamp01, smooth } from './lib.js';
@@ -21,28 +20,38 @@ const TIERS = [
 ];
 
 // Final lens: chromatic fringing + radial zoom blur that grow with scroll
-// speed (the "warp" feel), vignette and film grain.
+// speed (the "warp" feel), then tone mapping + sRGB output (it is the last
+// pass, so it replaces a separate output pass), vignette and film grain.
 const LensShader = {
-  uniforms: { tDiffuse: { value: null }, uVel: { value: 0 }, uTime: GLOBAL.uTime, uTheme: GLOBAL.uTheme, uAspect: { value: 1 } },
+  uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, uBloom: { value: 1 }, uRes: { value: new THREE.Vector2(1, 1) }, uVel: { value: 0 }, uTime: GLOBAL.uTime, uTheme: GLOBAL.uTheme, uAspect: { value: 1 } },
   vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse; uniform float uVel, uTime, uTheme, uAspect; varying vec2 vUv;
+    uniform sampler2D tDiffuse, tBloom; uniform float uBloom, uVel, uTime, uTheme, uAspect; uniform vec2 uRes; varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
     void main(){
       vec2 c = vUv - 0.5;
       float r2 = dot(c*vec2(uAspect,1.0), c*vec2(uAspect,1.0));
       vec2 off = c * (0.0016 + uVel*0.014) * (0.3 + r2*2.4);
-      vec3 col = vec3(texture2D(tDiffuse, vUv - off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv + off).b);
+      // fringing only where the shift is visible: a sub-pixel shift needs one read, not three
+      vec2 offPx = off*uRes;
+      vec3 col = dot(offPx, offPx) < 0.16 ? texture2D(tDiffuse, vUv).rgb
+        : vec3(texture2D(tDiffuse, vUv - off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv + off).b);
       float zb = smoothstep(0.04, 0.6, uVel);
       if (zb > 0.0) {
+        // 5 taps along the ray, jittered per pixel: the same smear as 8 even taps under motion
+        float j = hash(vUv*vec2(913.0, 541.0) + fract(uTime));
         vec3 acc = col;
-        for (int i = 1; i < 8; i++) acc += texture2D(tDiffuse, vUv - c*(float(i)/8.0)*uVel*0.075).rgb;
-        col = mix(col, acc/8.0, zb);
+        for (int i = 1; i < 5; i++) acc += texture2D(tDiffuse, vUv - c*((float(i) - j)/5.0)*uVel*0.075).rgb;
+        col = mix(col, acc/5.0, zb);
       }
-      float vig = smoothstep(0.95, 0.15, length(c*vec2(1.0, 0.9)));
-      col *= mix(0.5 + 0.5*vig, 0.86 + 0.14*vig, uTheme);
-      col += (hash(vUv*vec2(1731.0, 977.0) + fract(uTime*7.3)) - 0.5) * mix(0.018, 0.012, uTheme);
+      // bloom is added here, in the same pass (see the bloom pass setup)
+      col += texture2D(tBloom, vUv).rgb * uBloom;
       gl_FragColor = vec4(col, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+      float vig = smoothstep(0.95, 0.15, length(c*vec2(1.0, 0.9)));
+      gl_FragColor.rgb *= mix(0.5 + 0.5*vig, 0.86 + 0.14*vig, uTheme);
+      gl_FragColor.rgb += (hash(vUv*vec2(1731.0, 977.0) + fract(uTime*7.3)) - 0.5) * mix(0.018, 0.012, uTheme);
     }`,
 };
 
@@ -51,6 +60,8 @@ const LensShader = {
  * through every station's keyframes, parameterised by the story position u
  * (chapter index + local progress).
  */
+export const FOV_BASE = FOV;
+
 export class World {
   constructor(canvas, opts = {}) {
     this.reduced = !!opts.reduced;
@@ -58,6 +69,11 @@ export class World {
     renderer.toneMapping = THREE.NeutralToneMapping;
     renderer.toneMappingExposure = 1;
     this.renderer = renderer;
+    // Start at a pixel ratio the GPU can hold at 60 fps: retina laptops render
+    // at 1.5× (sharp enough under bloom + grain), phones at 1.25×.
+    const isMobile = matchMedia('(max-width: 760px), (pointer: coarse)').matches;
+    GLOBAL.renderer = renderer;
+    GLOBAL.bakeScale = isMobile ? 0.5 : 1;
 
     const scene = new THREE.Scene();
     this.scene = scene;
@@ -93,6 +109,15 @@ export class World {
 
     this.stations = [];
     this.keys = [];
+    // Station lights are stand-ins: two scene-level lights take on the values
+    // of the (at most two) stations in view. The number of lights in the scene
+    // never changes, so no material ever recompiles in the middle of a flight.
+    this.lightSources = [];
+    this.lightSlots = [0, 1].map(() => {
+      const l = new THREE.PointLight('#ffffff', 0);
+      scene.add(l);
+      return l;
+    });
     this.pointer = { x: 0, y: 0, tx: 0, ty: 0 };
     this.ctx = { time: 0, dt: 0, u: 0, vel: 0, dir: 1, mode: 'desktop', reduced: this.reduced, pointer: this.pointer, lang: 'en', world: this };
     this.u = null;
@@ -101,9 +126,6 @@ export class World {
     this.avoid = null; // screen rect labels must stay out of (the text panel)
     this.select = () => {}; // (chapter id, step) — set by the page
 
-    // Start at a pixel ratio the GPU can hold at 60 fps: retina laptops render
-    // at 1.5× (sharp enough under bloom + grain), phones at 1.25×.
-    const isMobile = matchMedia('(max-width: 760px), (pointer: coarse)').matches;
     const forced = opts.quality;
     this.tier = forced === 'high' ? 0 : forced === 'low' ? 3 : isMobile ? 2 : devicePixelRatio > 1.25 ? 1 : 0;
     this.adaptive = !forced;
@@ -117,9 +139,14 @@ export class World {
     bindNum(this.bloom, 'strength', 0.62, 0.16);
     bindNum(this.bloom, 'threshold', 0.7, 0.95);
     composer.addPass(this.bloom);
-    composer.addPass(new OutputPass());
     this.lens = new ShaderPass(LensShader);
     composer.addPass(this.lens);
+    // The bloom pass ends by re-reading and re-writing the full frame just to add
+    // its glow; the lens pass reads every pixel anyway, so it adds the glow itself
+    // and that full-resolution copy is skipped.
+    const quad = this.bloom.fsQuad, draw = quad.render.bind(quad);
+    quad.render = (r) => quad.material !== this.bloom.blendMaterial && draw(r);
+    this.lens.uniforms.tBloom.value = this.bloom.renderTargetsHorizontal[0].texture;
     this.composer = composer;
 
     this.labelLayer = document.getElementById('labels');
@@ -145,6 +172,11 @@ export class World {
     station.index = i;
     station.labels ||= [];
     for (const L of station.labels) this.labelLayer.appendChild(L.el);
+    station.group.traverse((o) => {
+      if (!o.isPointLight) return;
+      o.visible = false;
+      this.lightSources.push({ light: o, station });
+    });
     this.scene.add(station.group);
     this.stations.push(station);
     station.layout?.(this.ctx);
@@ -193,7 +225,10 @@ export class World {
     this.composer.setPixelRatio(pr);
     this.composer.setSize(innerWidth, innerHeight);
     this.bloom.enabled = this.quality.bloom;
-    this.bloom.setSize(Math.round((innerWidth * pr) / 2), Math.round((innerHeight * pr) / 2));
+    this.lens.uniforms.uBloom.value = this.quality.bloom ? 1 : 0;
+    this.lens.uniforms.uRes.value.set(innerWidth * pr, innerHeight * pr);
+    // bloom is a wide blur: its chain starts at a quarter of the CSS size whatever the pixel ratio
+    this.bloom.setSize(Math.round(innerWidth / 2), Math.round(innerHeight / 2));
   }
 
   resize() {
@@ -204,6 +239,15 @@ export class World {
     this.lens.uniforms.uAspect.value = w / h;
     this.applyQuality();
     for (const s of this.stations) s.layout?.(this.ctx);
+  }
+
+  /** How far the projection is shifted (fraction of the screen) for a station framing factor f. */
+  frameShift(f) {
+    const m = this.ctx.mode;
+    return {
+      sx: m === 'desktop' ? 0.17 * f * this.ctx.dir : m === 'tablet' ? 0.1 * f * this.ctx.dir : 0,
+      sy: m === 'mobile' ? 0.2 * f : m === 'tablet' ? 0.06 * f : 0,
+    };
   }
 
   /** Camera pose at story position u. */
@@ -256,8 +300,7 @@ export class World {
     cam.rotateZ(-pt.x * 0.012 - this.vel * 0.02 * Math.sin(ctx.time * 0.7));
     // shift the projection so stations sit beside the text panel
     const W = innerWidth, H = innerHeight;
-    const sx = m === 'desktop' ? 0.17 * f * ctx.dir : m === 'tablet' ? 0.1 * f * ctx.dir : 0;
-    const sy = m === 'mobile' ? 0.2 * f : m === 'tablet' ? 0.06 * f : 0;
+    const { sx, sy } = this.frameShift(f);
     cam.setViewOffset(W, H, -sx * W, -sy * H, W, H);
     const fov = FOV + this.vel * 9;
     if (Math.abs(cam.fov - fov) > 0.01) {
@@ -273,12 +316,27 @@ export class World {
       s.weight = on ? clamp01(1 - Math.max(-local, local - 1) / 0.6) : 0;
       if (on) s.update(ctx, clamp01(local), local);
     }
+    this.updateLights();
     this.sky.update(ctx);
     this.gates.update(ctx);
     this.placeLabels();
     this.lens.uniforms.uVel.value = this.vel;
     this.composer.render(dt);
     this.monitor(dt);
+  }
+
+  /** Hand the light slots to the stations in view (nearest first). */
+  updateLights() {
+    const live = this.lightSources.filter((s) => s.station.group.visible).sort((a, b) => b.station.weight - a.station.weight);
+    this.lightSlots.forEach((slot, i) => {
+      const src = live[i]?.light;
+      if (!src) return (slot.intensity = 0);
+      src.getWorldPosition(slot.position);
+      slot.color.copy(src.color);
+      slot.intensity = src.intensity;
+      slot.distance = src.distance;
+      slot.decay = src.decay;
+    });
   }
 
   /** DOM labels follow their 3D anchors. */

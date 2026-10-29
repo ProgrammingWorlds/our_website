@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /* ======================================================================
    Shared uniforms + theme binding
@@ -11,6 +12,8 @@ export const GLOBAL = {
   uTheme: { value: 0 },
   uTime: { value: 0 },
   uPR: { value: 1 },
+  renderer: null, // set by the World; procedural textures are baked with it
+  bakeScale: 1, // texture size multiplier (phones bake at half size)
 };
 
 const binds = [];
@@ -67,23 +70,117 @@ float fbm(vec3 p){ float a = 0.5, s = 0.0; for(int i=0;i<5;i++){ s += a*vnoise(p
 float fbm3(vec3 p){ float a = 0.5, s = 0.0; for(int i=0;i<3;i++){ s += a*vnoise(p); p = p*2.03 + vec3(1.7,9.2,3.1); a *= 0.5; } return s * 1.14; }
 `;
 
+// Bake-time only noise: many octaves, ridges and craters. These run once into
+// a cube texture, never per frame, so they can afford what realism needs.
+const BAKE_NOISE = /* glsl */ `
+${NOISE}
+float fbmN(vec3 p, int oct){ float a = 0.5, s = 0.0, n = 0.0; for(int i=0;i<9;i++){ if(i>=oct) break; s += a*vnoise(p); n += a; p = p*2.03 + vec3(1.7,9.2,3.1); a *= 0.5; } return s/n; }
+float ridged(vec3 p, int oct){ float a = 0.5, s = 0.0, n = 0.0; for(int i=0;i<8;i++){ if(i>=oct) break; float r = 1.0 - abs(vnoise(p)*2.0 - 1.0); s += a*r*r; n += a; p = p*2.07 + vec3(4.1,1.3,7.7); a *= 0.5; } return s/n; }
+vec3 hash33(vec3 p){ p = fract(p*vec3(.1031,.1030,.0973)); p += dot(p, p.yxz+33.33); return fract((p.xxy+p.yxx)*p.zyx); }
+// impact craters on a 3D cell grid: bowl, raised rim, faint ejecta; returns a height offset
+float craters(vec3 p, float density){
+  vec3 i = floor(p), f = fract(p); float h = 0.0;
+  for (int x=-1; x<=1; x++) for (int y=-1; y<=1; y++) for (int z=-1; z<=1; z++){
+    vec3 c = vec3(float(x), float(y), float(z));
+    vec3 o = hash33(i + c);
+    if (o.z > density) continue;
+    float r = 0.18 + 0.32*o.x*o.x;
+    float d = length(c + o - f) / r;
+    h += d < 1.0 ? (d*d - 1.0)*0.55 + smoothstep(0.55, 1.0, d)*0.32 : smoothstep(1.6, 1.0, d)*0.22*(1.0 - smoothstep(1.0, 1.05, d)*0.4);
+  }
+  return h;
+}
+`;
+
+/**
+ * Renders a procedural function of direction into a cube texture once.
+ * `body` is GLSL that reads `vec3 d` (unit direction) and writes `gl_FragColor`.
+ */
+export function bakeCube(size, uniforms, body) {
+  const renderer = GLOBAL.renderer;
+  const res = Math.max(64, Math.round(size * GLOBAL.bakeScale));
+  const target = new THREE.WebGLCubeRenderTarget(res, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
+  const scene = new THREE.Scene();
+  scene.add(
+    new THREE.Mesh(
+      new THREE.BoxGeometry(2, 2, 2),
+      new THREE.ShaderMaterial({
+        uniforms,
+        side: THREE.BackSide,
+        depthTest: false,
+        depthWrite: false,
+        vertexShader: /* glsl */ `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: /* glsl */ `varying vec3 vDir; ${Object.keys(uniforms).map((k) => `uniform ${uniforms[k].type} ${k};`).join(' ')}
+          ${BAKE_NOISE}
+          void main(){ vec3 d = normalize(vDir); ${body} }`,
+      }),
+    ),
+  );
+  const cam = new THREE.CubeCamera(0.1, 10, target);
+  const prev = { tm: renderer.toneMapping, rt: renderer.getRenderTarget() };
+  renderer.toneMapping = THREE.NoToneMapping;
+  cam.update(renderer, scene);
+  renderer.toneMapping = prev.tm;
+  renderer.setRenderTarget(prev.rt);
+  scene.children[0].geometry.dispose();
+  scene.children[0].material.dispose();
+  // the bake shader programs are never needed again
+  return target.texture;
+}
+
 /* ======================================================================
-   Planets: procedural surface + fresnel rim, themed (dark cosmic / icy day)
+   Planets: themed (dark cosmic / icy day). The surface — domain-warped
+   continents, ridges, impact craters, city lights and clouds — is baked once
+   into a cube texture; per pixel the shader only reads it and lights it, with
+   relief from the height map, a soft terminator, cloud shadows, a specular
+   glint on low "seas", limb darkening and an atmospheric rim.
    ====================================================================== */
+function bakePlanet(o) {
+  const size = o.res ?? (o.seg >= 120 ? 1024 : 512);
+  return bakeCube(
+    size,
+    {
+      uScale: { value: o.scale ?? 2.2, type: 'float' },
+      uSeed: { value: o.seed ?? 1, type: 'float' },
+      uCrater: { value: o.crater ?? 0, type: 'float' },
+    },
+    /* glsl */ `
+      vec3 q = d*uScale + uSeed*7.3;
+      vec3 w = vec3(fbmN(q, 4), fbmN(q + vec3(5.2,1.3,2.8), 4), fbmN(q + vec3(2.1,7.7,4.4), 4));
+      vec3 qw = q + (w - 0.5)*1.4;
+      float h = fbmN(qw, 7);
+      h += (ridged(qw*1.7 + 3.0, 5) - 0.5)*0.22*smoothstep(0.45, 0.7, h);
+      if (uCrater > 0.0) {
+        // airless moons: gentle maria and highlands, saturated with craters at three sizes
+        h = mix(h, 0.55 + (h - 0.5)*0.55, uCrater);
+        h += craters(d*6.0 + uSeed, 0.5)*0.2*uCrater;
+        h += craters(d*14.0 + uSeed*2.0, 0.5)*0.11*uCrater;
+        h += craters(d*34.0 + uSeed*3.0, 0.45)*0.05*uCrater;
+      }
+      float n2 = fbmN(q*3.1 + 11.0, 5);
+      float city = fbmN(q*6.0, 5) * smoothstep(0.42, 0.55, h);
+      vec3 cq = d*uScale*1.6 + uSeed*3.1;
+      float cl = fbmN(cq + (vec3(fbmN(cq*0.8, 3), fbmN(cq*0.8 + 4.0, 3), 0.0) - 0.5)*2.2, 6);
+      gl_FragColor = vec4(clamp(h, 0.0, 1.0), n2, city, cl);`,
+  );
+}
+
 export function makePlanet(radius, o = {}) {
+  const map = bakePlanet(o);
   const uniforms = {
     uTheme: GLOBAL.uTheme,
     uTime: GLOBAL.uTime,
-    uScale: { value: o.scale ?? 2.2 },
-    uSeed: { value: o.seed ?? 1 },
-    uRadius: { value: radius },
+    uMap: { value: map },
+    uTexel: { value: 1.5 / map.image.width },
+    uDetail: { value: o.seg >= 120 ? 1 : 0 },
     uLight: { value: new THREE.Vector3(...(o.light || [1, 0.6, 0.8])).normalize() },
     uRimPow: { value: o.rimPow ?? 2.6 },
     uRimStr: { value: o.rimStr ?? 1.4 },
     uCity: { value: o.city ?? 0 },
     uCrater: { value: o.crater ?? 0 },
+    uBump: { value: o.bump ?? (o.crater ? 4 : 1.4) },
     uSpin: { value: o.spin ?? 0.02 },
-    uCloudAmt: { value: o.clouds ?? 0.8 },
+    uCloudAmt: { value: o.clouds ?? (o.crater ? 0 : 0.8) },
   };
   const c = o.colors || {};
   bindColor((uniforms.uA = { value: null }), 'value', c.a?.[0] ?? '#0a1a4d', c.a?.[1] ?? '#cfdcf5');
@@ -93,33 +190,61 @@ export function makePlanet(radius, o = {}) {
   const mat = new THREE.ShaderMaterial({
     uniforms,
     vertexShader: /* glsl */ `
-      varying vec3 vN; varying vec3 vW; varying vec3 vO;
-      void main(){ vO = position; vN = normalize(mat3(modelMatrix)*normal); vec4 w = modelMatrix*vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+      varying vec3 vN; varying vec3 vW; varying vec3 vO; varying vec3 vMX; varying vec3 vMY; varying vec3 vMZ;
+      void main(){
+        vO = normalize(position); vN = normalize(mat3(modelMatrix)*normal);
+        vMX = normalize(modelMatrix[0].xyz); vMY = normalize(modelMatrix[1].xyz); vMZ = normalize(modelMatrix[2].xyz);
+        vec4 w = modelMatrix*vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
     fragmentShader: /* glsl */ `
-      uniform vec3 uA, uB, uRim, uAmb, uLight; uniform float uTheme, uTime, uScale, uSeed, uRadius, uRimPow, uRimStr, uCity, uCrater, uSpin, uCloudAmt;
-      varying vec3 vN; varying vec3 vW; varying vec3 vO;
+      uniform samplerCube uMap; uniform vec3 uA, uB, uRim, uAmb, uLight;
+      uniform float uTheme, uTime, uTexel, uDetail, uRimPow, uRimStr, uCity, uCrater, uBump, uSpin, uCloudAmt;
+      varying vec3 vN; varying vec3 vW; varying vec3 vO; varying vec3 vMX; varying vec3 vMY; varying vec3 vMZ;
       ${NOISE}
       void main(){
-        float a = uTime*uSpin; mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));
-        vec3 o = vO / uRadius; o.xz = rot*o.xz;
-        vec3 q = o*uScale + uSeed*7.3;
-        float n = fbm(q);
-        float n2 = fbm(q*3.1 + 11.0);
-        vec3 N = normalize(vN); vec3 V = normalize(cameraPosition - vW); vec3 L = normalize(uLight);
-        float diff = smoothstep(-0.25, 1.0, dot(N, L));
-        vec3 base = mix(uA, uB, smoothstep(0.35, 0.7, n));
-        base *= 0.75 + 0.5*n2;
-        if (uCrater > 0.0) { float cr = smoothstep(0.62, 0.66, vnoise(q*4.0)) * (1.0 - smoothstep(0.66, 0.74, vnoise(q*4.0))); base *= 1.0 - cr*0.35*uCrater; }
-        float fres = pow(1.0 - max(dot(N, V), 0.0), uRimPow);
-        vec3 col = base*(diff*1.05 + 0.08) + uAmb*0.35;
-        float rimLit = smoothstep(-0.4, 0.6, dot(N, L));
-        col += uRim * fres * uRimStr * (0.25 + rimLit);
-        // dark: warm sparkle (cities / volcanic) on the shadow side
-        float city = smoothstep(0.72, 0.78, fbm(q*6.0)) * (1.0 - diff) * uCity * (1.0 - uTheme);
-        col += vec3(1.0, 0.62, 0.25) * city * 0.9;
-        // light: high bright cloud cover
-        float cl = smoothstep(0.5, 0.75, fbm(q*1.6 + vec3(uTime*0.01, 0.0, 0.0)));
-        col = mix(col, vec3(1.0)*(0.75 + 0.35*diff), cl * uTheme * uCloudAmt);
+        // the surface turns slowly: rotate the lookup, and rotate the relief back
+        float a = uTime*uSpin; float ca = cos(a), sa = sin(a);
+        mat2 rot = mat2(ca, -sa, sa, ca);
+        vec3 o = normalize(vO); o.xz = rot*o.xz;
+        vec4 s = textureCube(uMap, o);
+        float h = s.r;
+        vec3 T = normalize(cross(abs(o.y) < 0.99 ? vec3(0.0,1.0,0.0) : vec3(1.0,0.0,0.0), o)), B = cross(o, T);
+        float hx = textureCube(uMap, normalize(o + T*uTexel)).r, hy = textureCube(uMap, normalize(o + B*uTexel)).r;
+        vec3 nb = normalize(o - (T*(hx - h) + B*(hy - h)) * uBump / uTexel * 0.012);
+        nb.xz = nb.xz*rot; // back to object space
+        vec3 Ng = normalize(vN);
+        // relief normal in world space: tilt the geometric normal by the object-space perturbation
+        vec3 dn = nb - normalize(vO);
+        vec3 N = normalize(Ng + vMX*dn.x + vMY*dn.y + vMZ*dn.z);
+        vec3 V = normalize(cameraPosition - vW), L = normalize(uLight);
+        float ndl = dot(N, L), gdl = dot(Ng, L);
+        // soft terminator from the sphere, relief light inside it
+        float day = smoothstep(-0.18, 0.35, gdl);
+        float diff = max(ndl, 0.0)*0.9 + 0.1*day;
+        // albedo: lowlands to highlands, with fine tint variation and darker crater floors
+        float land = smoothstep(0.38, 0.66, h);
+        vec3 base = mix(uA, uB, land) * (0.72 + 0.56*s.g);
+        if (uDetail > 0.0) base *= 0.9 + 0.2*vnoise(o*180.0);
+        base *= mix(1.0, 0.25 + 1.5*h, uCrater);
+        vec3 col = base*(diff*day*1.1 + 0.05) + uAmb*0.3*(1.0 - 0.75*day);
+        // a soft specular glint on the low, smooth "seas" (not on cratered moons)
+        float sea = (1.0 - smoothstep(0.3, 0.42, h)) * (1.0 - uCrater);
+        col += vec3(1.0, 0.92, 0.8) * pow(max(dot(reflect(-L, N), V), 0.0), 28.0) * 0.35 * sea * day;
+        // clouds, with their shadow cast a little away from the light
+        float cl = smoothstep(0.52, 0.74, s.a) * uCloudAmt;
+        vec3 lo = L; lo.xz = rot*lo.xz;
+        float shadow = smoothstep(0.52, 0.74, textureCube(uMap, normalize(o - lo*0.02)).a) * uCloudAmt;
+        col *= 1.0 - shadow*0.35*day;
+        col = mix(col, vec3(0.92, 0.95, 1.0)*(0.08 + 0.95*max(gdl, 0.0)), cl*mix(0.22, 0.95, uTheme));
+        // night side: warm city lights (dark theme only)
+        float city = smoothstep(0.66, 0.74, s.b) * (1.0 - day) * uCity * (1.0 - uTheme) * (1.0 - cl);
+        col += vec3(1.0, 0.62, 0.25) * city * 1.1;
+        // the atmospheric rim, brightest on the sun side; airless moons darken toward the limb instead
+        float ndv = max(dot(Ng, V), 0.0);
+        col *= mix(1.0, mix(0.6, 1.0, pow(ndv, 0.4)), uCrater);
+        // atmospheric haze: the surface fades into the rim colour toward the limb (lit side brighter)
+        float fres = pow(1.0 - ndv, uRimPow), lit = smoothstep(-0.4, 0.6, gdl);
+        col = mix(col, uRim*(0.35 + 0.75*lit), clamp(fres*uRimStr*(0.2 + lit)*0.42, 0.0, 0.8));
+        col += uRim * fres * uRimStr * 0.22 * lit;
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -128,13 +253,14 @@ export function makePlanet(radius, o = {}) {
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, o.seg ?? 96, Math.round((o.seg ?? 96) * 0.66)), mat);
   const group = new THREE.Group();
   group.add(mesh);
-  if (o.atmo !== false) group.add(makeAtmosphere(radius * (o.atmoScale ?? 1.12), o.atmoColor || ['#3d6bff', '#bcd3ff'], o.atmoStr ?? 1));
+  if (o.atmo !== false) group.add(makeAtmosphere(radius * (o.atmoScale ?? 1.12), o.atmoColor || ['#3d6bff', '#bcd3ff'], o.atmoStr ?? 1, uniforms.uLight));
   group.userData.material = mat;
   return group;
 }
 
-export function makeAtmosphere(radius, color, strength = 1) {
-  const uniforms = { uStr: { value: strength } };
+/** Atmospheric halo: thicker toward the limb and brighter on the side facing the light. */
+export function makeAtmosphere(radius, color, strength = 1, light = { value: new THREE.Vector3(1, 0.6, 0.8).normalize() }) {
+  const uniforms = { uStr: { value: strength }, uLight: light };
   bindColor((uniforms.uColor = { value: null }), 'value', color[0], color[1]);
   const mat = themeBlend(
     new THREE.ShaderMaterial({
@@ -143,9 +269,13 @@ export function makeAtmosphere(radius, color, strength = 1) {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      vertexShader: /* glsl */ `varying vec3 vN; varying vec3 vV; void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
-      fragmentShader: /* glsl */ `uniform vec3 uColor; uniform float uStr; varying vec3 vN; varying vec3 vV;
-        void main(){ float i = pow(clamp(0.78 + dot(vN, vV), 0.0, 1.0), 3.5) * uStr; gl_FragColor = vec4(uColor, clamp(i,0.0,1.0));
+      vertexShader: /* glsl */ `varying vec3 vN; varying vec3 vV; varying vec3 vWN;
+        void main(){ vN = normalize(normalMatrix*normal); vWN = normalize(mat3(modelMatrix)*normal); vec4 mv = modelViewMatrix*vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
+      fragmentShader: /* glsl */ `uniform vec3 uColor, uLight; uniform float uStr; varying vec3 vN; varying vec3 vV; varying vec3 vWN;
+        void main(){
+          float i = pow(clamp(0.78 + dot(vN, vV), 0.0, 1.0), 3.5) * uStr;
+          i *= 0.35 + 0.85*smoothstep(-0.55, 0.45, dot(vWN, normalize(uLight)));
+          gl_FragColor = vec4(uColor, clamp(i, 0.0, 1.0));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
         }`,
@@ -346,37 +476,102 @@ export function makeLogo(R = 1) {
 }
 
 /* ======================================================================
-   Rocks (displaced icosahedra, flat-shaded; dark basalt ↔ snow)
+   Rocks: asteroids with a lumpy body, layered surface relief and impact
+   craters. Smooth-shaded; cavities and crater floors are darkened and ridges
+   lightened in the vertex colours, so they read as stone, not plastic.
    ====================================================================== */
 function rnd(seed) {
   let s = seed >>> 0;
   return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
-function rockGeometry(seed, detail = 2) {
-  const g = new THREE.IcosahedronGeometry(1, detail);
+// small deterministic value noise for geometry (runs once per rock variant)
+function hash3(x, y, z) {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 1440662683)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vnoise3(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const f = (t) => t * t * (3 - 2 * t);
+  const u = f(x - xi), v = f(y - yi), w = f(z - zi);
+  const l = (a, b, t) => a + (b - a) * t;
+  const c = (dx, dy, dz) => hash3(xi + dx, yi + dy, zi + dz);
+  return l(l(l(c(0, 0, 0), c(1, 0, 0), u), l(c(0, 1, 0), c(1, 1, 0), u), v), l(l(c(0, 0, 1), c(1, 0, 1), u), l(c(0, 1, 1), c(1, 1, 1), u), v), w);
+}
+function fbm3d(x, y, z, oct) {
+  let a = 0.5, s = 0, n = 0;
+  for (let i = 0; i < oct; i++) {
+    s += a * vnoise3(x, y, z);
+    n += a;
+    x = x * 2.03 + 1.7;
+    y = y * 2.03 + 9.2;
+    z = z * 2.03 + 3.1;
+    a *= 0.5;
+  }
+  return s / n;
+}
+function rockGeometry(seed, detail = 12) {
+  let g = new THREE.IcosahedronGeometry(1, detail);
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  g = mergeVertices(g); // shared vertices: smooth normals, and no cracks between faces
   const p = g.attributes.position;
   const r = rnd(seed);
-  const bumps = Array.from({ length: 7 }, () => [new THREE.Vector3(r() - 0.5, r() - 0.5, r() - 0.5).normalize(), 0.15 + r() * 0.3]);
+  const o = [r() * 50, r() * 50, r() * 50];
+  const dir = () => new THREE.Vector3(r() - 0.5, r() - 0.5, r() - 0.5).normalize();
+  const lobes = Array.from({ length: 6 }, () => [dir(), 0.12 + r() * 0.26]);
+  const pits = Array.from({ length: 4 + Math.floor(r() * 5) }, () => [dir(), 0.18 + r() * 0.38, 0.05 + r() * 0.1]);
+  const squash = 0.62 + r() * 0.22;
+  const colors = new Float32Array(p.count * 3);
   const v = new THREE.Vector3();
+  const ks = new Float32Array(p.count);
+  let mean = 0;
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i).normalize();
     let k = 1;
-    for (const [d, a] of bumps) k += a * Math.pow(Math.max(0, v.dot(d)), 3) - a * 0.25;
-    k += (r() - 0.5) * 0.08;
+    for (const [d, a] of lobes) k += a * Math.pow(Math.max(0, v.dot(d)), 3) - a * 0.25;
+    k += (fbm3d(v.x * 1.4 + o[0], v.y * 1.4 + o[1], v.z * 1.4 + o[2], 3) - 0.5) * 0.45;
+    k += (fbm3d(v.x * 5 + o[1], v.y * 5 + o[2], v.z * 5 + o[0], 3) - 0.5) * 0.12;
+    const fine = fbm3d(v.x * 16 + o[2], v.y * 16 + o[0], v.z * 16 + o[1], 2);
+    k += (fine - 0.5) * 0.045;
+    let floor = 0;
+    for (const [d, rad, depth] of pits) {
+      const t = Math.acos(Math.min(1, Math.max(-1, v.dot(d)))) / rad;
+      if (t < 1) {
+        k -= depth * (1 - t * t);
+        floor = Math.max(floor, 1 - t);
+      } else if (t < 1.35) k += depth * 0.35 * Math.sin(((t - 1) / 0.35) * Math.PI);
+    }
+    ks[i] = k;
+    mean += k / p.count;
     v.multiplyScalar(k);
-    v.y *= 0.72;
+    v.y *= squash;
     p.setXYZ(i, v.x, v.y, v.z);
+    colors[i * 3] = floor;
+    colors[i * 3 + 1] = fine;
   }
+  for (let i = 0; i < p.count; i++) {
+    // ridges catch light, hollows and crater floors stay dark; a little mineral tint variation
+    const relief = Math.min(1, Math.max(0, (ks[i] - mean) * 2.4 + 0.55));
+    const ao = 0.5 + 0.5 * relief - colors[i * 3] * 0.22;
+    const grain = 0.86 + colors[i * 3 + 1] * 0.28;
+    const c = Math.max(0.18, ao * grain);
+    colors[i * 3] = c * 1.02;
+    colors[i * 3 + 1] = c;
+    colors[i * 3 + 2] = c * 0.96;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   g.computeVertexNormals();
   return g;
 }
 let rockMat;
 export function rockMaterial() {
   if (rockMat) return rockMat;
-  rockMat = new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85, metalness: 0.08 });
-  bindColor(rockMat, 'color', '#1a2140', '#f3f6fc');
-  bindColor(rockMat, 'emissive', '#04081a', '#7f97c9');
-  bindNum(rockMat, 'emissiveIntensity', 1, 0.12);
+  rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0.02 });
+  bindColor(rockMat, 'color', '#575c6f', '#e9edf5');
+  // a faint fill keeps the shadow side readable against the dark sky
+  bindColor(rockMat, 'emissive', '#070b1d', '#7f97c9');
+  bindNum(rockMat, 'emissiveIntensity', 0.8, 0.1);
   return rockMat;
 }
 /** items: [{p:[x,y,z], s:number|[x,y,z], r?:[x,y,z]}] */

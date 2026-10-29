@@ -1,8 +1,9 @@
 // Site-wide settings. Empty social entries are rendered as non-clickable
-// "coming soon" items.
+// "coming soon" items in the footer and are left out of the Contact page.
 export const SITE = {
   url: 'https://programmingworlds.vercel.app',
   email: 'programmingworld2030@gmail.com', // destination of the contact form (see api/contact.js)
+  phone: '', // e.g. '+962 7X XXX XXXX' — a Phone card appears on the Contact page once this is set
   socials: {
     instagram: '',
     x: '',

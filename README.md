@@ -48,7 +48,8 @@ To try email locally, copy `.env.example` to `.env.local`, fill it in, and run `
 Edit [src/config.js](src/config.js) and [src/i18n.js](src/i18n.js):
 
 - `SITE.url` — the canonical domain (also hard-coded in the `<head>` of both HTML pages, `public/sitemap.xml` and `public/robots.txt`; change all of them if the domain changes).
-- `SITE.socials` — footer links (empty entries render as non-clickable “coming soon” icons).
+- `SITE.socials` — footer links (empty entries render as non-clickable “coming soon” icons). A filled-in profile also appears as a card on the Contact page.
+- `SITE.phone` — empty by default. Once set, a Phone card (tap to call) appears on the Contact page.
 - `PROJECTS` — real projects only. After adding one, run `npm run capture:projects` to capture its laptop / tablet / phone screenshots (WebP) from the live site, and check that the site may be framed before setting `embeddable: true`.
 
 Icons: `public/favicon.svg` is the source; `npm run icons` renders the PNG icon set.
@@ -63,8 +64,8 @@ server/contact.js           validation, spam + rate limiting, email via Resend
 src/story.js                stories per page: chapter order, scroll length, steps, text-panel windows
 src/scroll.js               Lenis + mapping of scroll position → story position u
 src/chapters.js             DOM side of the story: panels, steps, selection, overflow, focus, HUD, rail, nav
-src/showcase.js             projects: device frames, screenshots, live preview iframes
-src/contact-form.js         form validation, states and submission
+src/showcase.js             projects: MacBook / iPad / iPhone frames with Safari chrome, screenshots, live preview iframes
+src/contact-form.js         contact cards (real channels only), form validation, states and submission
 src/ui.js                   i18n rendering, theme toggle, language toggle, mobile menu, cursor, loader
 src/main.js                 boot: WebGL detection, scene registry, single animation loop
 src/i18n.js                 all English + Arabic copy
@@ -84,14 +85,27 @@ tests/                      node:test unit tests
 - The page has one tall scroll track. Each chapter has its own length in [src/story.js](src/story.js); the scroll position becomes the story position `u`: chapter index plus progress through that chapter.
 - All stations sit in one Three.js scene along −Z. Each station adds camera keyframes; the world joins them into one Catmull-Rom path, so the camera flies from station to station with no cuts.
 - Text panels are fixed over the canvas. Each one flies in from depth and out past the camera as its chapter starts and ends. A panel taller than the space under the header travels up through its content as you scroll (and to any control that receives keyboard focus) instead of being clipped.
-- Chapters with steps (about pillars, services, process stages, projects) switch the focus card and the 3D focus together as you scroll. Clicking a step flies there and holds the selection during the flight, so it never flickers through the steps in between; any wheel or touch scroll hands control straight back to the visitor.
+- Chapters with steps (the seven About sections, services, process stages, projects) switch the focus card and the 3D focus together as you scroll. Clicking a step flies there and holds the selection during the flight, so it never flickers through the steps in between; any wheel or touch scroll hands control straight back to the visitor.
 - While a form field is focused, the scene holds still, so a phone's on-screen keyboard can't scroll the story elsewhere.
+
+### About Us
+
+Seven short sections in one card — Who We Are, Vision & Mission, What We Do, Our Approach, Our Values, Why Us, Our Commitment (ending in a call to action). They are steps of the About chapter: scroll through them or pick one by number. All sections live in the same grid cell, so the card keeps one size and the layout never jumps; inactive sections are `inert`. The copy is built from the site's own services, process and positioning — no invented history, numbers or clients.
+
+### Contact
+
+Two parts: **ways to reach us** (cards built from `SITE` in `src/config.js` — email with copy / write, languages, plus phone and social profiles once they are filled in) and **send us a message** (name, email, subject, service, message). The form posts JSON to `/api/contact`; it never opens the visitor's email app. Success is shown only when the email provider accepted the message; without an API key the visitor gets an honest "not available, email us directly" message (HTTP 503).
 
 ### Accessibility & performance
 
-- `prefers-reduced-motion` turns off smooth scrolling, the fly-in panels, the warp effects and the intro animation, and slows ambient motion. `?still` forces this mode.
+- `prefers-reduced-motion` turns off smooth scrolling, the fly-in panels, the warp effects, the theme reveal and the intro animation, and slows ambient motion. `?still` forces this mode.
+- The theme control is one round button named by its action ("Switch to light mode"); its icon is the current theme (crescent ↔ sun). The new theme opens as a circle from the button with View Transitions, or cross-fades where those are not supported.
 - Step lists are ARIA tab lists (arrow keys, Home/End), the device switch is a radio group, every control has a visible focus ring, and the selected state never relies on colour alone.
-- Rendering starts at 1.5× on high-density screens and steps down (pixel ratio, then bloom) when the median frame runs long; full-screen shaders use 3-octave noise; panels animate with transform/opacity only; label avoidance uses cached layout (no per-frame reflow). Without WebGL2, the site shows static gradients and the same scroll story.
+- Rendering starts at 1.5× on high-density screens and steps down (pixel ratio, then bloom) when the median frame runs long; panels animate with transform/opacity only; label avoidance uses cached layout (no per-frame reflow). Without WebGL2, the site shows static gradients and the same scroll story.
+- Procedural surfaces are **baked once** at load into cube textures (`bakeCube` in `src/three/lib.js`): the sky (nebulae, Milky Way with dust lanes, galaxies) and every planet (domain-warped terrain, ridges, craters, clouds, city lights). Per pixel the shaders only read and light them, so the detail costs one or two texture reads instead of many noise evaluations.
+- The number of lights never changes: each station's point light is a stand-in whose values two scene-level lights take on, so no material recompiles in the middle of a flight. Shaders are compiled and textures uploaded while the loader is showing.
+- Post-processing is two passes after the scene: bloom (its chain starts at a quarter of the CSS size) and one final lens pass that also adds the bloom, tone-maps and outputs — no separate full-screen copy or output pass.
+- `?test` exposes `window.__pw.world` (the 3D world) for the end-to-end checks.
 - The full welcome animation plays once per session. Theme follows the OS on first visit, is stored in `localStorage` (`pw-theme`) and applied before first paint; language is stored as `pw-lang`.
 
 ## Visual verification

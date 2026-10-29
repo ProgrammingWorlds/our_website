@@ -95,12 +95,12 @@
         <a href="/#contact" data-i18n="nav.contact">Contact</a>
       </nav>
       <div class="nav__tools">
-        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
-          <span class="theme-toggle__track" aria-hidden="true">
-            <span class="theme-toggle__icon theme-toggle__icon--moon"></span>
-            <span class="theme-toggle__icon theme-toggle__icon--sun"></span>
-            <span class="theme-toggle__knob"><span class="theme-toggle__knob-icon"></span></span>
-          </span>
+        <button class="theme-toggle" id="themeToggle" type="button">
+          <svg class="theme-toggle__svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <mask id="themeToggleCut"><rect width="24" height="24" fill="#fff" /><circle class="theme-toggle__cut" cx="17" cy="8" r="6.6" fill="#000" /></mask>
+            <circle class="theme-toggle__core" cx="12" cy="12" r="7.5" mask="url(#themeToggleCut)" />
+            <path class="theme-toggle__rays" d="M12 1.6v2.2M12 20.2v2.2M1.6 12h2.2M20.2 12h2.2M4.65 4.65l1.55 1.55M17.8 17.8l1.55 1.55M4.65 19.35l1.55-1.55M17.8 6.2l1.55-1.55" />
+          </svg>
         </button>
         <button class="lang-toggle" id="langToggle" type="button"><span class="lang-toggle__globe" aria-hidden="true"></span><span class="lang-toggle__code" id="langCode">عربي</span></button>
         <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="mobileMenu"></button>

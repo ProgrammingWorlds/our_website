@@ -17,6 +17,7 @@ const $ = (id) => document.getElementById(id);
 const SVC_ICONS = ['web', 'code', 'mobile', 'nfc', 'training'];
 const STAGE_ICONS = ['bulb', 'strategy', 'design', 'dev', 'test', 'rocket'];
 const PILLAR_ICONS = ['creative', 'practical', 'modern', 'partner'];
+const VALUE_ICONS = ['test', 'target', 'spark', 'layers', 'refresh'];
 const FUTURE_ICONS = ['ai', 'globe', 'test', 'cloud'];
 
 // Each chapter's words enter differently, so the journey never repeats a beat.
@@ -122,7 +123,12 @@ export function createChapters({ scroll, reduced }) {
       tablist($('futureSteps'), idx.future, t(lang, 'future.items').map((it, k) =>
         `<button type="button" role="tab" aria-selected="false" aria-label="${it.title}" tabindex="-1"><span>${pad(k)}</span></button>`).join(''));
     }
-    if (idx.about >= 0) $('pillars').innerHTML = t(lang, 'about.pillars').map((p, k) => `<li>${svg(PILLAR_ICONS[k])}<span>${p}</span></li>`).join('');
+    if (idx.about >= 0) {
+      const secs = t(lang, 'about.sections');
+      tablist($('aboutSteps'), idx.about, secs.map((s, k) =>
+        `<button type="button" role="tab" id="about-tab-${k}" aria-selected="false" aria-controls="about-sec-${k}" tabindex="-1"><span class="about-nav__n">${pad(k)}</span><span class="about-nav__label">${s.short}</span></button>`).join(''));
+      $('aboutFocus').innerHTML = secs.map((s, k) => `<section class="about-sec" id="about-sec-${k}" role="tabpanel" aria-labelledby="about-tab-${k}" inert aria-hidden="true">${aboutSection(lang, k)}</section>`).join('');
+    }
     if (showcase) {
       showcase.build(lang);
       const tabs = $('workTabs');
@@ -138,6 +144,30 @@ export function createChapters({ scroll, reduced }) {
 
   function buildRail(lang) {
     rail.innerHTML = CHAPTERS.map((ch, i) => `<a href="#${ch.id}"><span class="rail__n">${pad(i)}</span><span class="rail__label">${t(lang, 'nav.' + ch.id)}</span><i></i></a>`).join('');
+  }
+
+  /** About: seven short sections that share one card (all stacked in one grid cell, so the card never resizes). */
+  function aboutSection(lang, k) {
+    const s = t(lang, 'about.sections')[k];
+    const head = `<p class="about-sec__kicker"><b>${pad(k)}</b> / ${pad(CHAPTERS[idx.about].steps - 1)} · ${s.label}</p><h3>${s.title}</h3>`;
+    const more = (href, label) => `<a class="about-more" href="${href}">${label}<i class="btn__arrow"></i></a>`;
+    switch (k) {
+      case 0:
+        return head + `<p>${s.text}</p><ul class="about-pills">${t(lang, 'about.pillars').map((p, j) => `<li>${svg(PILLAR_ICONS[j])}<span>${p}</span></li>`).join('')}</ul>`;
+      case 1:
+        return head + `<div class="about-duo">${[['eye', s.vision], ['flag', s.mission]].map(([ic, [h, p]]) => `<div><p class="about-duo__h">${svg(ic)}<span>${h}</span></p><p>${p}</p></div>`).join('')}</div>`;
+      case 2:
+        return head + `<p>${s.text}</p><ul class="about-chips">${t(lang, 'services.items').map((it, j) => `<li>${svg(SVC_ICONS[j])}<span>${it.title}</span></li>`).join('')}</ul>` + more('#services', s.more);
+      case 3:
+        return head + `<ol class="about-flow">${s.steps.map(([h, p], j) => `<li><b>${pad(j)}</b><strong>${h}</strong><span>${p}</span></li>`).join('')}</ol>` + more('#process', s.more);
+      case 4:
+        return head + `<ul class="about-grid">${s.items.map(([h, p], j) => `<li>${svg(VALUE_ICONS[j])}<div><strong>${h}</strong><span>${p}</span></div></li>`).join('')}</ul>`;
+      case 5:
+        return head + `<ul class="about-grid about-grid--why">${s.items.map(([h, p]) => `<li>${svg('check')}<div><strong>${h}</strong><span>${p}</span></div></li>`).join('')}</ul>`;
+      default:
+        return head + `<ul class="about-checks">${s.items.map((p) => `<li>${svg('check')}<span>${p}</span></li>`).join('')}</ul>` +
+          `<a class="btn btn--gold btn--sm" href="#contact"><span>${s.cta}</span><i class="btn__arrow"></i></a>`;
+    }
   }
 
   function focusCard(ci, k) {
@@ -159,6 +189,14 @@ export function createChapters({ scroll, reduced }) {
       html = `<span class="focus__icon">${svg(FUTURE_ICONS[k])}</span><div class="focus__body"><p class="focus__kicker"><b>${pad(k)}</b> / 04 <span class="badge">${t(lang, 'future.badge')}</span></p><h3>${it.title}</h3><p>${it.detail}</p></div>`;
     } else if (id === 'projects') {
       return showcase.setProject(k);
+    } else if (id === 'about') {
+      $('aboutFocus').querySelectorAll('.about-sec').forEach((sec, j) => {
+        const on = j === k;
+        sec.classList.toggle('is-on', on);
+        sec.inert = !on;
+        sec.setAttribute('aria-hidden', String(!on));
+      });
+      return;
     }
     if (!el) return;
     el.innerHTML = html;
@@ -176,7 +214,6 @@ export function createChapters({ scroll, reduced }) {
       b.tabIndex = j === k ? 0 : -1;
       b.classList.toggle('is-done', j < k);
     });
-    if (ci === idx.about) sec.querySelectorAll('.pillars li').forEach((li, j) => li.classList.toggle('is-on', j <= k));
     if (ci === idx.process) {
       const last = k >= CHAPTERS[ci].steps - 1;
       $('stagePrev').setAttribute('aria-disabled', String(k <= 0));

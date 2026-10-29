@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validate, handleContact, createRateLimiter, composeEmail, DEFAULT_TO } from '../server/contact.js';
 
-const good = { name: 'Lina Haddad', email: 'Lina@Example.com', company: 'Acme', service: 'web', scope: 'medium', message: 'We need a new website for our bakery.', website: '', elapsed: 8000 };
+const good = { name: 'Lina Haddad', email: 'Lina@Example.com', subject: 'New bakery website', company: 'Acme', service: 'web', scope: 'medium', message: 'We need a new website for our bakery.', website: '', elapsed: 8000 };
 const post = (body, extra = {}) => ({ method: 'POST', body, headers: { host: 'site.test', origin: 'https://site.test' }, ip: '1.2.3.4', ...extra });
 const ok = (id = 'em_123') => async () => ({ ok: true, status: 200, json: async () => ({ id }) });
 
@@ -20,8 +20,22 @@ test('validate: strips control characters and collapses single-line fields', () 
 });
 
 test('validate: rejects missing and malformed fields', () => {
-  const { errors } = validate({ ...good, name: '', email: 'not-an-email', service: 'hacking', message: 'short' });
-  assert.deepEqual(Object.keys(errors).sort(), ['email', 'message', 'name', 'service']);
+  const { errors } = validate({ ...good, name: '', email: 'not-an-email', subject: '  ', service: 'hacking', message: 'short' });
+  assert.deepEqual(Object.keys(errors).sort(), ['email', 'message', 'name', 'service', 'subject']);
+});
+
+test('validate: the subject is one clean line, so it cannot inject email headers', () => {
+  const { data } = validate({ ...good, subject: 'Hello\r\nBcc: victim@example.com\u0000  there' });
+  assert.equal(data.subject, 'Hello Bcc: victim@example.com there');
+  assert.ok(!/[\r\n]/.test(composeEmail(data).subject));
+  assert.equal(validate({ ...good, subject: 'x'.repeat(400) }).data.subject.length, 150);
+});
+
+test('validate: company and scope are optional (the current form does not send them)', () => {
+  const { data } = validate({ ...good, company: undefined, scope: undefined });
+  assert.equal(data.scope, '');
+  const { text } = composeEmail(data);
+  assert.ok(text.includes('Subject: New bakery website') && !text.includes('Company:') && !text.includes('Scope:'));
 });
 
 test('validate: unknown scope falls back, overlong message is rejected', () => {
@@ -40,7 +54,7 @@ test('composeEmail: escapes HTML from the visitor', () => {
   assert.ok(!html.includes('<script>') && !html.includes('<img'));
   assert.ok(html.includes('&lt;script&gt;'));
   assert.ok(text.includes('<script>')); // plain text is not HTML
-  assert.ok(subject.startsWith('New inquiry — Web & Systems'));
+  assert.ok(subject.startsWith('New bakery website — ') && subject.endsWith('(website inquiry)'));
 });
 
 test('rate limiter: allows max hits per window, per key', () => {

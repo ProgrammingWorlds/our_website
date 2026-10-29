@@ -78,6 +78,12 @@ async function boot() {
       // compile every station's shaders up front so the first flight doesn't hitch
       world.stations.forEach((s) => (s.group.visible = true));
       await world.renderer.compileAsync?.(world.scene, world.camera);
+      // and upload their textures now, not on the frame a station first comes into view
+      world.scene.traverse((o) => {
+        const m = o.material;
+        if (m?.map) world.renderer.initTexture(m.map);
+        for (const u of Object.values(m?.uniforms || {})) if (u.value?.isTexture) world.renderer.initTexture(u.value);
+      });
       loader.progress(92);
       root.classList.add('webgl');
     } catch (err) {
@@ -109,7 +115,7 @@ async function boot() {
   else scrollTo(0, 0);
 
   // hooks for the screenshot and end-to-end scripts
-  if (capture || params.has('test')) window.__pw = { toU: (u) => scroll.toU(u, { immediate: true }), arrive: (id) => chapterIndex(id) + arriveAt(CHAPTERS[chapterIndex(id)]), chapters, scroll };
+  if (capture || params.has('test')) window.__pw = { toU: (u) => scroll.toU(u, { immediate: true }), arrive: (id) => chapterIndex(id) + arriveAt(CHAPTERS[chapterIndex(id)]), chapters, scroll, world };
 
   let last = performance.now();
   gsap.ticker.add((time) => {

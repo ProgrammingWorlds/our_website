@@ -12,6 +12,30 @@ export const DEVICES = {
 const pad = (n) => String(n + 1).padStart(2, '0');
 const shot = (p, device) => `/projects/${p.id}-${device}.webp`;
 const $ = (id) => document.getElementById(id);
+const host = (url) => new URL(url).host;
+
+// Safari / status bar glyphs, drawn as plain shapes (decorative, aria-hidden)
+const G = {
+  signal: '<svg viewBox="0 0 18 12" fill="currentColor"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>',
+  wifi: '<svg viewBox="0 0 16 12" fill="currentColor"><path d="M8 11.5l2.4-2.9a3.6 3.6 0 0 0-4.8 0zM3.4 6.3l1.4 1.7a5 5 0 0 1 6.4 0l1.4-1.7a7.3 7.3 0 0 0-9.2 0zM.7 3.1l1.4 1.7a9.2 9.2 0 0 1 11.8 0l1.4-1.7a11.5 11.5 0 0 0-14.6 0z"/></svg>',
+  battery: '<svg viewBox="0 0 27 12" fill="currentColor"><rect x=".5" y=".5" width="23" height="11" rx="3" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="8" rx="1.8"/><path d="M25 4v4a2 2 0 0 0 0-4z" opacity=".5"/></svg>',
+  lock: '<svg viewBox="0 0 10 12" fill="currentColor"><path d="M2 5V3.5a3 3 0 0 1 6 0V5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x=".8" y="5" width="8.4" height="6.5" rx="1.4"/></svg>',
+  sidebar: '<svg viewBox="0 0 16 13" fill="none" stroke="currentColor" stroke-width="1.2"><rect x=".6" y=".6" width="14.8" height="11.8" rx="2.5"/><path d="M5.5 1v11"/></svg>',
+  back: '<svg viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 1.5l-5 5 5 5"/></svg>',
+  fwd: '<svg viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".35"><path d="M1.5 1.5l5 5-5 5"/></svg>',
+  share: '<svg viewBox="0 0 12 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 1v9M3 3.8L6 1l3 2.8M3.5 6h-2v8h9V6h-2"/></svg>',
+  plus: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M6 1v10M1 6h10"/></svg>',
+  tabs: '<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2"><rect x=".6" y="3.6" width="10.8" height="10.8" rx="2"/><path d="M3.6 3.5v-.9a2 2 0 0 1 2-2h6.8a2 2 0 0 1 2 2v6.8a2 2 0 0 1-2 2h-.9"/></svg>',
+};
+// the status bar (iPad, iPhone) and the Safari bar with the project's real address
+function chrome(device, url) {
+  const address = `<span class="device__url">${G.lock}<span>${host(url)}</span></span>`;
+  const status = `<span>9:41</span><span class="device__icons">${G.signal}${G.wifi}${G.battery}</span>`;
+  return {
+    top: device === 'laptop' ? '' : status,
+    bar: device === 'phone' ? address : `${G.sidebar}${G.back}${G.fwd}${address}${G.share}${G.plus}${G.tabs}`,
+  };
+}
 
 /**
  * The projects chapter: real screenshots of each site in a laptop, tablet or
@@ -24,11 +48,17 @@ export function createShowcase({ reduced }) {
   const device = $('device'), screen = $('deviceScreen'), count = $('workCount');
   const S = { k: 0, device: 'laptop', live: false, lang: 'en', awake: false, frames: new Map() };
 
-  // screenshot layer (live frames are appended next to it once and kept)
-  const shotEl = document.createElement('div');
-  shotEl.className = 'device__shot';
-  screen.appendChild(shotEl);
-  new ResizeObserver(() => screen.style.setProperty('--s', String(screen.clientWidth / DEVICES[S.device].w))).observe(screen);
+  // The screen is the device's Safari: status bar / notch strip, address bar, and
+  // the page view. The view holds the screenshot, and the live frames, which
+  // are appended once and kept (never reloaded).
+  const el = (cls) => Object.assign(document.createElement('div'), { className: cls });
+  const top = el('device__top'), bar = el('device__bar'), view = el('device__view'), shotEl = el('device__shot');
+  top.setAttribute('aria-hidden', 'true');
+  bar.setAttribute('aria-hidden', 'true');
+  view.appendChild(shotEl);
+  screen.append(top, bar, view);
+  const fit = () => screen.style.setProperty('--s', String(view.clientWidth / DEVICES[S.device].w || 0.3));
+  new ResizeObserver(fit).observe(view);
 
   function build(lang) {
     S.lang = lang;
@@ -130,7 +160,7 @@ export function createShowcase({ reduced }) {
       status.textContent = t(S.lang, 'portfolio.blocked');
     }, 15000);
     f.appendChild(frame);
-    screen.appendChild(f);
+    view.appendChild(f);
     S.frames.set(p.id, f);
     return f;
   }
@@ -138,9 +168,12 @@ export function createShowcase({ reduced }) {
   function renderScreen(animate) {
     const p = PROJECTS[S.k], d = S.device, v = DEVICES[d];
     device.className = `device device--${d}`;
+    const c = chrome(d, p.url);
+    top.innerHTML = c.top;
+    bar.innerHTML = c.bar;
     screen.style.setProperty('--vw', v.w);
     screen.style.setProperty('--vh', v.h);
-    screen.style.setProperty('--s', String(screen.clientWidth / v.w || 0.3));
+    fit();
     // screenshot: swap only once the new image is decoded, so the screen never flashes empty
     const img = new Image(v.w, v.h);
     img.alt = t(S.lang, 'portfolio.alt').replace('{name}', p.name[S.lang]).replace('{device}', t(S.lang, `portfolio.devices.${d}`));

@@ -20,6 +20,7 @@ const browser = await puppeteer.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--hide-scrollbars'],
   protocolTimeout: 240000,
 });
+await browser.defaultBrowserContext().overridePermissions(URL, ['clipboard-read', 'clipboard-write', 'clipboard-sanitized-write']);
 
 /** Opens a page and records console errors, page errors and failed same-origin requests. */
 async function open(path, { w = 1440, h = 900, reduced = false } = {}) {
@@ -87,7 +88,32 @@ for (const id of ['about', 'services', 'process', 'projects', 'contact', 'about'
   const v = await panelInView(page, id);
   check(`nav → #${id} lands and the panel is readable below the header`, arrived && v.ok, `top ${v.top}, bottom ${v.bottom}`);
 }
-await page.click('#about a[href="#services"]');
+// about: seven sections, each reachable from its number; the card never changes size
+await goto(page, 'about');
+await wait(400);
+let aboutOk = true, aboutInfo = '';
+const cardH = await page.$eval('#aboutFocus', (e) => e.offsetHeight);
+for (const k of [0, 3, 6, 1, 5, 2, 4]) {
+  await page.click(`#aboutSteps [role="tab"]:nth-child(${k + 1})`);
+  await page.waitForFunction(() => !__pw.chapters.state.lock, { timeout: 8000 }).catch(() => {});
+  await wait(500);
+  const a = await page.evaluate((k) => {
+    const secs = [...document.querySelectorAll('#aboutFocus .about-sec')];
+    const on = secs.filter((s) => s.classList.contains('is-on'));
+    const r = document.getElementById('aboutFocus').getBoundingClientRect();
+    return {
+      step: __pw.chapters.state.steps[1], on: on.map((s) => secs.indexOf(s)), inert: secs.filter((s, j) => j !== k).every((s) => s.inert && s.getAttribute('aria-hidden') === 'true'),
+      sel: document.querySelector('#aboutSteps [aria-selected="true"]').id, h: document.getElementById('aboutFocus').offsetHeight,
+      inView: r.top >= document.getElementById('nav').getBoundingClientRect().bottom && r.bottom <= innerHeight,
+    };
+  }, k);
+  if (a.step !== k || a.on.join() !== String(k) || !a.inert || a.sel !== `about-tab-${k}` || a.h !== cardH || !a.inView) (aboutOk = false), (aboutInfo += ` ${k}: ${JSON.stringify(a)}`);
+}
+check('about: every section number shows its section (others inert), card size constant and in view', aboutOk, aboutInfo);
+await page.click('#aboutSteps [role="tab"]:nth-child(7)');
+await wait(1600);
+check('about: the last section offers "Start Your Project" → Contact', (await page.$eval('#about-sec-6 a[href="#contact"]', (a) => a.textContent.trim())) === 'Start Your Project');
+await page.click('#about a.btn[href="#services"]');
 check('About CTA "Explore Our Services" → Services', await until(page, () => document.querySelector('#services').classList.contains('is-active') && !__pw.scroll.lenis.isScrolling));
 await wait(300);
 await page.click('#services a[href="#process"]');
@@ -141,6 +167,29 @@ check('process: last stage offers "See Our Projects"', (await page.$eval('#howWe
 await page.click('#stagePrev');
 await wait(1700);
 check('process: "previous" goes back a stage', (await st(page)).steps[3] === 4);
+const boardInView = (page) => page.evaluate(() => {
+  const w = __pw.world, stn = w?.stations.find((s) => s.id === 'process');
+  const card = document.getElementById('stageFocus').getBoundingClientRect(), nav = document.getElementById('nav').getBoundingClientRect().bottom;
+  const out = { step: __pw.chapters.state.steps[3], card: card.top >= nav && card.bottom <= innerHeight };
+  const bm = stn?.boards[out.step];
+  if (!bm?.visible) return { ...out, board: 'hidden', ok: out.card };
+  const V = w.camera.position.constructor, pr = document.querySelector('#process .panel').getBoundingClientRect();
+  bm.updateWorldMatrix(true, false);
+  const pts = [[-1.6, -0.95], [1.6, -0.95], [-1.6, 0.95], [1.6, 0.95]].map(([x, y]) => new V(x, y, 0).applyMatrix4(bm.matrixWorld).project(w.camera));
+  const xs = pts.map((p) => (p.x * 0.5 + 0.5) * innerWidth), ys = pts.map((p) => (-p.y * 0.5 + 0.5) * innerHeight);
+  const L = Math.min(...xs), R = Math.max(...xs), T = Math.min(...ys), B = Math.max(...ys);
+  const clear = document.documentElement.dir === 'rtl' ? R <= pr.left : L >= pr.right;
+  return { ...out, board: [L, R, T, B].map(Math.round), ok: out.card && pts.every((p) => p.z < 1) && L >= 0 && R <= innerWidth && T >= nav && B <= innerHeight && clear };
+});
+let numOk = true, numInfo = '';
+for (const k of [0, 1, 2, 3, 4, 5, 4, 1, 5, 0]) {
+  await page.click(`#stageSteps [role="tab"]:nth-child(${k + 1})`);
+  await page.waitForFunction(() => !__pw.chapters.state.lock, { timeout: 8000 }).catch(() => {});
+  await wait(900); // the camera eases onto the stage
+  const b = await boardInView(page);
+  if (b.step !== k || !b.ok) (numOk = false), (numInfo += ` ${k + 1}: ${JSON.stringify(b)}`);
+}
+check('process: every stage number shows its whole card and its whole 3D board (incl. 05, first and last, repeated)', numOk, numInfo);
 await page.click('#stageSteps [role="tab"]:nth-child(6)');
 await wait(1700);
 await page.click('#howWeWork');
@@ -170,17 +219,26 @@ check('projects: live preview loads the real site in the frame', liveLoaded && (
 await page.click('#deviceTabs [data-device="phone"]');
 await wait(800);
 const kept = await page.evaluate(() => ({ n: document.querySelectorAll('.device__live iframe').length, mark: document.querySelector('.device__live.is-on iframe')?.dataset.mark, w: document.querySelector('.device__live.is-on iframe').getBoundingClientRect().width }));
+check('projects: the device shows Safari with the site\'s real address', (await page.$eval('.device__url', (e) => e.textContent)) === 'eatstopjo.vercel.app');
 check('projects: switching device keeps the same iframe (no reload)', kept.n === 1 && kept.mark === 'first', JSON.stringify(kept));
 await page.click('#workLive');
 await page.click('#deviceTabs [data-device="laptop"]');
 
-// contact form
+// contact: real channels only, and a working copy button
 await goto(page, 'contact');
 await wait(500);
+const ch = await page.evaluate(() => ({ cards: [...document.querySelectorAll('#channels .channel__title')].map((e) => e.textContent), mail: document.querySelector('#channels a[href^="mailto:"]')?.getAttribute('href') }));
+check('contact: info cards show the real email (and no unconfigured channels)', ch.cards.join() === 'Email,Languages' && ch.mail === 'mailto:programmingworld2030@gmail.com', JSON.stringify(ch));
+await page.click('#channels [data-copy]');
+await wait(300);
+const copied = await page.evaluate(async () => ({ label: document.querySelector('#channels [data-copy] span').textContent, clip: await navigator.clipboard.readText().catch(() => null) }));
+check('contact: "Copy" copies the address and confirms', copied.label === 'Copied' && copied.clip === 'programmingworld2030@gmail.com', JSON.stringify(copied));
+
+// contact form
 await page.click('#cfSubmit');
 await wait(300);
 const empty = await page.evaluate(() => ({
-  invalid: ['name', 'email', 'service', 'message'].every((n) => document.getElementById(`cf-${n}`).getAttribute('aria-invalid') === 'true'),
+  invalid: ['name', 'email', 'subject', 'service', 'message'].every((n) => document.getElementById(`cf-${n}`).getAttribute('aria-invalid') === 'true'),
   msg: document.getElementById('cf-name-err').textContent,
   focus: document.activeElement.id,
 }));
@@ -193,6 +251,7 @@ await wait(200);
 check('form: malformed email gets a helpful message', (await page.$eval('#cf-email-err', (e) => e.textContent)).includes('valid email'));
 await page.click('#cf-email', { clickCount: 3 });
 await page.type('#cf-email', 'qa@example.com');
+await page.type('#cf-subject', 'Automated check');
 await page.select('#cf-service', 'web');
 await page.type('#cf-message', 'Automated check of the contact form path.');
 await wait(1600);
@@ -201,12 +260,16 @@ await page.click('#cfSubmit');
 const res = await apiResponse;
 await until(page, () => /is-(success|failure|rate)/.test(document.getElementById('cfStatus').className));
 const status = await page.$eval('#cfStatus', (e) => ({ cls: e.className, text: e.textContent, mail: e.querySelector('a')?.getAttribute('href') }));
+const req = JSON.parse(res.request().postData() || '{}');
+check('form: posts the fields to /api/contact (no email app involved)', res.request().method() === 'POST' && req.subject === 'Automated check' && req.email === 'qa@example.com' && !('company' in req));
 if (res.status() === 200) check('form: delivered (provider confirmed)', status.cls.includes('is-success'));
-else check(`form: provider not configured (HTTP ${res.status()}) → honest failure with direct email link`, status.cls.includes('is-failure') && status.mail === 'mailto:programmingworld2030@gmail.com', status.text);
+else check(`form: provider not configured (HTTP ${res.status()}) → honest message with direct email link`, /is-(failure|unavailable)/.test(status.cls) && status.mail === 'mailto:programmingworld2030@gmail.com', status.text);
 check('homepage: no console errors or failed requests', page.problems.length === 0, page.problems.join(' | '));
 
 // theme + language
 const before = await page.evaluate(() => document.documentElement.dataset.theme);
+const name0 = await page.$eval('#themeToggle', (b) => b.getAttribute('aria-label'));
+check('theme control is named by what it does', name0 === (before === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'), name0);
 await page.click('#themeToggle');
 await until(page, (b) => document.documentElement.dataset.theme !== b, before);
 // during the theme's view transition the page takes no clicks; wait until the toggle is hittable again
@@ -216,6 +279,14 @@ await until(page, () => {
 }, null, 20000);
 const after = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, stored: localStorage.getItem('pw-theme') }));
 check('theme toggle switches and remembers', after.theme !== before && after.stored === after.theme);
+check('theme control name follows the theme', (await page.$eval('#themeToggle', (b) => b.getAttribute('aria-label'))) === (after.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'));
+await page.focus('#themeToggle');
+await page.keyboard.press('Enter');
+check('theme control works from the keyboard', await until(page, (t) => document.documentElement.dataset.theme !== t, after.theme, 8000));
+await until(page, () => { const r = document.getElementById('langToggle').getBoundingClientRect(); return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('#langToggle'); }, null, 20000);
+await page.click('#themeToggle');
+await until(page, (t) => document.documentElement.dataset.theme === t, after.theme, 8000);
+await until(page, () => { const r = document.getElementById('langToggle').getBoundingClientRect(); return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('#langToggle'); }, null, 20000);
 await page.click('#langToggle');
 await until(page, () => document.documentElement.lang === 'ar', null, 15000);
 const ar = await page.evaluate(() => ({ lang: document.documentElement.lang, dir: document.documentElement.dir, code: document.getElementById('langCode').textContent, h: document.getElementById('h-about').textContent, menu: !!document.querySelector('[role="listbox"]') }));
@@ -239,7 +310,7 @@ await page.close();
 
 /* ------------------------------------------------------------------ responsive sweep */
 console.log('\nResponsive: overflow, clipping, header');
-const anchors = { home: 0.02, about: 1.55, services: 2.5, process: 3.5, projects: 4.4, contact: 5.5 };
+const anchors = { home: 0.02, about: 1.5, services: 2.5, process: 3.5, projects: 4.4, contact: 5.5 };
 for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [390, 844, 'ar'], [768, 1024, 'en'], [1024, 768, 'ar'], [1280, 720, 'en'], [1920, 1080, 'en']]) {
   page = await open(`/?test&capture&lang=${lang}`, { w, h });
   const issues = [];

@@ -124,12 +124,12 @@
         <a href="#contact" data-i18n="nav.contact">Contact</a>
       </nav>
       <div class="nav__tools">
-        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
-          <span class="theme-toggle__track" aria-hidden="true">
-            <span class="theme-toggle__icon theme-toggle__icon--moon"></span>
-            <span class="theme-toggle__icon theme-toggle__icon--sun"></span>
-            <span class="theme-toggle__knob"><span class="theme-toggle__knob-icon"></span></span>
-          </span>
+        <button class="theme-toggle" id="themeToggle" type="button">
+          <svg class="theme-toggle__svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <mask id="themeToggleCut"><rect width="24" height="24" fill="#fff" /><circle class="theme-toggle__cut" cx="17" cy="8" r="6.6" fill="#000" /></mask>
+            <circle class="theme-toggle__core" cx="12" cy="12" r="7.5" mask="url(#themeToggleCut)" />
+            <path class="theme-toggle__rays" d="M12 1.6v2.2M12 20.2v2.2M1.6 12h2.2M20.2 12h2.2M4.65 4.65l1.55 1.55M17.8 17.8l1.55 1.55M4.65 19.35l1.55-1.55M17.8 6.2l1.55-1.55" />
+          </svg>
         </button>
         <button class="lang-toggle" id="langToggle" type="button"><span class="lang-toggle__globe" aria-hidden="true"></span><span class="lang-toggle__code" id="langCode">عربي</span></button>
         <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="mobileMenu"></button>
@@ -174,11 +174,12 @@
       </section>
 
       <section class="chapter chapter--about" id="about" aria-labelledby="h-about">
-        <div class="panel">
-          <p class="eyebrow" data-i18n="about.eyebrow">Who We Are</p>
+        <div class="panel panel--about">
+          <p class="eyebrow" data-i18n="about.eyebrow">About Us</p>
           <h2 class="heading" id="h-about" data-heading="about.heading">We Turn Ideas Into Digital Reality.</h2>
           <p class="desc" data-i18n="about.desc">Programming Worlds is a technology startup that transforms ideas into creative digital solutions and advanced software.</p>
-          <ul class="pillars glass" id="pillars"></ul>
+          <div class="about-nav" id="aboutSteps" role="tablist" data-i18n-label="about.list"></div>
+          <div class="about-card glass" id="aboutFocus"></div>
           <div class="actions">
             <a class="btn btn--ghost btn--solid-light" href="#services"><span data-i18n="about.cta">Explore Our Services</span><i class="btn__arrow"></i></a>
           </div>
@@ -230,6 +231,7 @@
                     <div class="device__screen" id="deviceScreen"></div>
                   </div>
                   <div class="device__base" aria-hidden="true"></div>
+                  <div class="device__btns" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
                 </figure>
               </div>
               <div class="work__nav">
@@ -243,50 +245,57 @@
       </section>
 
       <section class="chapter chapter--contact" id="contact" aria-labelledby="h-contact">
-        <div class="panel panel--form">
-          <p class="eyebrow" data-i18n="contact.eyebrow">Let's Build Together</p>
-          <h2 class="heading" id="h-contact" data-heading="contact.heading">Have an Idea? Let's Build It.</h2>
-          <p class="desc" data-i18n="contact.desc">Whether you are a business, a startup or an individual, tell us about your idea and we will turn it into a real digital solution.</p>
-          <form class="cform glass" id="contactForm" action="/api/contact" method="post" novalidate>
-            <div class="cform__grid">
-              <div class="field">
-                <label for="cf-name"><span data-i18n="contact.form.name">Full name</span> <span class="field__req" aria-hidden="true">*</span></label>
-                <input id="cf-name" name="name" type="text" autocomplete="name" required maxlength="100" aria-describedby="cf-name-err" />
-                <p class="field__err" id="cf-name-err"></p>
-              </div>
-              <div class="field">
-                <label for="cf-email"><span data-i18n="contact.form.email">Email address</span> <span class="field__req" aria-hidden="true">*</span></label>
-                <input id="cf-email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="160" dir="ltr" aria-describedby="cf-email-err" />
-                <p class="field__err" id="cf-email-err"></p>
-              </div>
-              <div class="field">
-                <label for="cf-company"><span data-i18n="contact.form.company">Company</span> <span class="field__opt">(<span data-i18n="contact.form.optional">optional</span>)</span></label>
-                <input id="cf-company" name="company" type="text" autocomplete="organization" maxlength="120" />
-              </div>
-              <div class="field">
-                <label for="cf-service"><span data-i18n="contact.form.service">Service of interest</span> <span class="field__req" aria-hidden="true">*</span></label>
-                <select id="cf-service" name="service" required aria-describedby="cf-service-err"></select>
-                <p class="field__err" id="cf-service-err"></p>
-              </div>
-              <div class="field field--full">
-                <label for="cf-scope"><span data-i18n="contact.form.scope">Project scope</span> <span class="field__opt">(<span data-i18n="contact.form.optional">optional</span>)</span></label>
-                <select id="cf-scope" name="scope"></select>
-              </div>
-              <div class="field field--full">
-                <label for="cf-message"><span data-i18n="contact.form.message">Message</span> <span class="field__req" aria-hidden="true">*</span></label>
-                <textarea id="cf-message" name="message" rows="3" required minlength="10" maxlength="3000" aria-describedby="cf-message-err"></textarea>
-                <p class="field__err" id="cf-message-err"></p>
-              </div>
-              <div class="hp" aria-hidden="true">
-                <label for="cf-website">Website</label>
-                <input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
-              </div>
+        <div class="panel panel--wide panel--contact">
+          <div class="contact">
+            <div class="contact__info">
+              <p class="eyebrow" data-i18n="contact.eyebrow">Let's Build Together</p>
+              <h2 class="heading" id="h-contact" data-heading="contact.heading">Have an Idea? Let's Build It.</h2>
+              <p class="desc" data-i18n="contact.desc">Whether you are a business, a startup or an individual, tell us about your idea and we will turn it into a real digital solution.</p>
+              <h3 class="sr-only" data-i18n="contact.channels">Ways to reach us</h3>
+              <ul class="channels" id="channels"></ul>
             </div>
-            <div class="cform__foot">
-              <button class="btn btn--gold" id="cfSubmit" type="submit"><span id="cfSubmitLabel" data-i18n="contact.form.send">Send Inquiry</span><i class="btn__arrow"></i></button>
-              <p class="cform__status" id="cfStatus" role="status" aria-live="polite"></p>
-            </div>
-          </form>
+            <form class="cform glass" id="contactForm" action="/api/contact" method="post" novalidate aria-labelledby="cf-title">
+              <div class="cform__head">
+                <h3 class="cform__title" id="cf-title" data-i18n="contact.form.title">Send us a message</h3>
+                <p class="cform__intro" data-i18n="contact.form.intro">It goes straight to our inbox, no email app needed.</p>
+              </div>
+              <div class="cform__grid">
+                <div class="field">
+                  <label for="cf-name"><span data-i18n="contact.form.name">Full name</span> <span class="field__req" aria-hidden="true">*</span></label>
+                  <input id="cf-name" name="name" type="text" autocomplete="name" required maxlength="100" aria-describedby="cf-name-err" />
+                  <p class="field__err" id="cf-name-err"></p>
+                </div>
+                <div class="field">
+                  <label for="cf-email"><span data-i18n="contact.form.email">Email address</span> <span class="field__req" aria-hidden="true">*</span></label>
+                  <input id="cf-email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="160" dir="ltr" aria-describedby="cf-email-err" />
+                  <p class="field__err" id="cf-email-err"></p>
+                </div>
+                <div class="field">
+                  <label for="cf-subject"><span data-i18n="contact.form.subject">Subject</span> <span class="field__req" aria-hidden="true">*</span></label>
+                  <input id="cf-subject" name="subject" type="text" required maxlength="150" aria-describedby="cf-subject-err" />
+                  <p class="field__err" id="cf-subject-err"></p>
+                </div>
+                <div class="field">
+                  <label for="cf-service"><span data-i18n="contact.form.service">Service of interest</span> <span class="field__req" aria-hidden="true">*</span></label>
+                  <select id="cf-service" name="service" required aria-describedby="cf-service-err"></select>
+                  <p class="field__err" id="cf-service-err"></p>
+                </div>
+                <div class="field field--full">
+                  <label for="cf-message"><span data-i18n="contact.form.message">Message</span> <span class="field__req" aria-hidden="true">*</span></label>
+                  <textarea id="cf-message" name="message" rows="4" required minlength="10" maxlength="3000" aria-describedby="cf-message-err"></textarea>
+                  <p class="field__err" id="cf-message-err"></p>
+                </div>
+                <div class="hp" aria-hidden="true">
+                  <label for="cf-website">Website</label>
+                  <input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+                </div>
+              </div>
+              <div class="cform__foot">
+                <button class="btn btn--gold" id="cfSubmit" type="submit"><span id="cfSubmitLabel" data-i18n="contact.form.send">Send Inquiry</span><i class="btn__arrow"></i></button>
+                <p class="cform__status" id="cfStatus" role="status" aria-live="polite"></p>
+              </div>
+            </form>
+          </div>
         </div>
       </section>
     </main>
